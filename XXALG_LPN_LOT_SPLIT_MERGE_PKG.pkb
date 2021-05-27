@@ -263,8 +263,230 @@ from table(
               p_payload           => NULL
              );
    END insert_lpn_split_gtt;
+   
+    PROCEDURE insert_lot_merge_gtt (
+      p_group_id        IN       NUMBER,
+      p_data            IN       BLOB,
+      x_return_status   IN OUT   VARCHAR2,
+      x_return_msg      IN OUT   VARCHAR2
+   )
+   IS
+      l_return_status    VARCHAR2 (10)      := 'S';
+      l_err_msg          VARCHAR2 (4000);
+      --l_so_index         VARCHAR2 (64);
+      l_rec_num          NUMBER             := 0;
 
-   PROCEDURE insert_lot_merge_gtt (
+      TYPE t_gtt_tab IS TABLE OF apps.xxalg_lpn_lot_split_merge_gt%ROWTYPE;
+
+      l_gtt_tab          t_gtt_tab          := t_gtt_tab ();
+      l_clob             CLOB;
+      l_dest_offset      PLS_INTEGER        := 1;
+      l_src_offset       PLS_INTEGER        := 1;
+      l_lang_context     PLS_INTEGER        := DBMS_LOB.default_lang_ctx;
+      l_warning          PLS_INTEGER;
+      l_hdr_count        PLS_INTEGER;
+      l_line_count       PLS_INTEGER;
+      l_json_index       apex_json.t_values;
+      l_procedure_name   VARCHAR2 (100)     := 'insert_lot_merge_gtt';
+   BEGIN
+      xxprop_common_util_pkg.trace_log
+                                 (p_module            =>    g_package_name
+                                                         || '.'
+                                                         || l_procedure_name,
+                                  p_message_text      => 'Start of the Procedure',
+                                  p_payload           => NULL
+                                 );
+      xxprop_common_util_pkg.trace_log
+         (p_module            => g_package_name || '.' || l_procedure_name,
+          p_message_text      => 'Payload',
+          p_payload           => 'MOBILETRANSACTIONID|INVENTORYORGID|SOURCELOTNUMBER|INVENTORYITEMID|SOURCELPNID|SOURCESUBINVENTORYCODE|SOURCELOCATOR|UOMCODE|DESTLOTNUMBER|DESTLPNID|DESTSUBINVENTORYCODE|DESTLOCATOR|QUANTITY|TRANSACTIONDATE|USERID|RESPONSIBILITYID'
+         );
+      DBMS_LOB.createtemporary (lob_loc      => l_clob,
+                                CACHE        => FALSE,
+                                dur          => DBMS_LOB.CALL
+                               );
+      DBMS_LOB.converttoclob (dest_lob          => l_clob,
+                              src_blob          => p_data,
+                              amount            => DBMS_LOB.lobmaxsize,
+                              dest_offset       => l_dest_offset,
+                              src_offset        => l_src_offset,
+                              blob_csid         => DBMS_LOB.default_csid,
+                              lang_context      => l_lang_context,
+                              warning           => l_warning
+                             );
+      -- APEX_JSON.parse(l_clob);
+      apex_json.parse (l_json_index, l_clob);
+-- Loop through all the departments.
+      l_hdr_count :=
+                 apex_json.get_count (p_path        => '.',
+                                      p_values      => l_json_index);
+
+      FOR i IN 1 .. l_hdr_count
+      LOOP
+         l_rec_num := l_rec_num + 1;
+         l_gtt_tab.EXTEND;
+         l_gtt_tab (l_gtt_tab.LAST).record_grp_id := p_group_id;
+         l_gtt_tab (l_gtt_tab.LAST).record_num := l_rec_num;
+         l_gtt_tab (l_gtt_tab.LAST).mobile_transaction_id :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].MobileTransactionId',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).inv_org_id :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].InventoryOrgId',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).lot_number :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].SourceLotNumber',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).inventory_item_id :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].InventoryItemId',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).source_lpn_id :=
+            apex_json.get_varchar2 (p_path        => '[' || i
+                                                     || '].SourceLpnId',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).source_sub_inventory :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].SourceSubinventoryCode',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).source_locator :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].SourceLocator',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).uom_code :=
+            apex_json.get_varchar2 (p_path        => '[' || i || '].UomCode',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).dest_lot_number :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].DestLotNumber',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).dest_lpn_id :=
+            apex_json.get_varchar2 (p_path        => '[' || i || '].Destlpnid',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).dest_sub_inventory :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].DestSubinventoryCode',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).dest_locator :=
+            apex_json.get_varchar2 (p_path        => '[' || i
+                                                     || '].DestLocator',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).quantity :=
+            apex_json.get_varchar2 (p_path        => '[' || i || '].Quantity',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).transaction_date :=
+            TO_DATE (apex_json.get_varchar2 (p_path        =>    '['
+                                                              || i
+                                                              || '].TransactionDate',
+                                             p_values      => l_json_index
+                                            ),
+                     'DD-MON-YYYY hh24:MI:SS'
+                    );
+         l_gtt_tab (l_gtt_tab.LAST).user_id :=
+            apex_json.get_varchar2 (p_path        => '[' || i || '].UserId',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).responsibility_id :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].ResponsibilityId',
+                                    p_values      => l_json_index
+                                   );
+         xxprop_common_util_pkg.trace_log
+              (p_module            => g_package_name || '.'
+                                      || l_procedure_name,
+               p_message_text      => 'Payload',
+               p_payload           =>    l_gtt_tab (l_gtt_tab.LAST).mobile_transaction_id
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).inv_org_id
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).lot_number
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).inventory_item_id
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).source_lpn_id
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).source_sub_inventory
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).source_locator
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).uom_code
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).dest_lot_number
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).dest_lpn_id
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).dest_sub_inventory
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).dest_locator
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).quantity
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).transaction_date
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).user_id
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).responsibility_id
+              );
+      END LOOP;
+
+      FORALL i IN l_gtt_tab.FIRST .. l_gtt_tab.LAST
+         INSERT INTO xxalg_lpn_lot_split_merge_gt
+              VALUES l_gtt_tab (i);
+      DBMS_LOB.freetemporary (lob_loc => l_clob);
+      xxprop_common_util_pkg.trace_log
+                                    (p_module            =>    g_package_name
+                                                            || '.'
+                                                            || l_procedure_name,
+                                     p_message_text      => 'End of the Procedure',
+                                     p_payload           => NULL
+                                    );
+   EXCEPTION
+      WHEN OTHERS
+      THEN
+         DBMS_LOB.freetemporary (lob_loc => l_clob);
+         x_return_status := 'E';
+         l_err_msg :=
+               l_err_msg
+            || 'Jason input not correct formate or Invalid Datatype:-'
+            || SQLERRM;
+         x_return_msg := l_err_msg;
+         DBMS_OUTPUT.put_line ('Error while insert_lot_merge_gtt' || SQLERRM);
+         -- clear the data in table type so that none of the record will be processed.
+           --p_out_data.DELETE;
+         xxprop_common_util_pkg.trace_log
+              (p_module            => g_package_name || '.'
+                                      || l_procedure_name,
+               p_message_text      =>    'Error Error while insert_lot_merge_gtt-'
+                                      || SQLERRM,
+               p_payload           => NULL
+              );
+   END insert_lot_merge_gtt;
+
+   /*PROCEDURE insert_lot_merge_gtt (
       p_group_id        IN       NUMBER,
       p_clob            IN       CLOB,
       x_return_status   IN OUT   VARCHAR2,
@@ -400,32 +622,31 @@ from table(
                                      || SQLERRM,
               p_payload           => NULL
              );
-   END insert_lot_merge_gtt;
+   END insert_lot_merge_gtt;*/
+
    PROCEDURE insert_lot_split_gtt (
       p_group_id        IN       NUMBER,
-      p_clob            IN       CLOB,
+      p_data            IN       BLOB,
       x_return_status   IN OUT   VARCHAR2,
       x_return_msg      IN OUT   VARCHAR2
    )
    IS
       l_return_status    VARCHAR2 (10)      := 'S';
       l_err_msg          VARCHAR2 (4000);
-      l_wo_index         VARCHAR2 (64);
+      --l_so_index         VARCHAR2 (64);
       l_rec_num          NUMBER             := 0;
-      v_stat             VARCHAR2 (1000)
-         := q'{
-select *
-from table(
-  pljson_table.json_table(
-    :json_str,
-    pljson_varray('[*].MobileTransactionId','[*].InventoryOrgId','[*].SourceLotNumber','[*].InventoryItemId','[*].SourceLpnId','[*].SourceSubinventoryCode','[*].SourceLocator','[*].UomCode','[*].DestLotNumber','[*].Destlpnid','[*].DestSubinventoryCode','[*].DestLocator','[*].Quantity','[*].TransactionDate','[*].UserId','[*].ResponsibilityId'),
-    pljson_varray('MOBILETRANSACTIONID','INVENTORYORGID','SOURCELOTNUMBER','INVENTORYITEMID','SOURCELPNID','SOURCESUBINVENTORYCODE','SOURCELOCATOR','UOMCODE','DESTLOTNUMBER','DESTLPNID','DESTSUBINVENTORYCODE','DESTLOCATOR','QUANTITY','TRANSACTIONDATE','USERID','RESPONSIBILITYID'),
-    table_mode=>'nested'
-  )
-)
-}';
-      c_cur              sys_refcursor;
-      v_rec              lot_split_rec_type;
+
+      TYPE t_gtt_tab IS TABLE OF apps.xxalg_lpn_lot_split_merge_gt%ROWTYPE;
+
+      l_gtt_tab          t_gtt_tab          := t_gtt_tab ();
+      l_clob             CLOB;
+      l_dest_offset      PLS_INTEGER        := 1;
+      l_src_offset       PLS_INTEGER        := 1;
+      l_lang_context     PLS_INTEGER        := DBMS_LOB.default_lang_ctx;
+      l_warning          PLS_INTEGER;
+      l_hdr_count        PLS_INTEGER;
+      l_line_count       PLS_INTEGER;
+      l_json_index       apex_json.t_values;
       l_procedure_name   VARCHAR2 (100)     := 'INSERT_LOT_SPLIT_GTT';
    BEGIN
       xxprop_common_util_pkg.trace_log
@@ -440,80 +661,162 @@ from table(
           p_message_text      => 'Payload',
           p_payload           => 'MOBILETRANSACTIONID|INVENTORYORGID|SOURCELOTNUMBER|INVENTORYITEMID|SOURCELPNID|SOURCESUBINVENTORYCODE|SOURCELOCATOR|UOMCODE|DESTLOTNUMBER|DESTLPNID|DESTSUBINVENTORYCODE|DESTLOCATOR|QUANTITY|TRANSACTIONDATE|USERID|RESPONSIBILITYID'
          );
+      DBMS_LOB.createtemporary (lob_loc      => l_clob,
+                                CACHE        => FALSE,
+                                dur          => DBMS_LOB.CALL
+                               );
+      DBMS_LOB.converttoclob (dest_lob          => l_clob,
+                              src_blob          => p_data,
+                              amount            => DBMS_LOB.lobmaxsize,
+                              dest_offset       => l_dest_offset,
+                              src_offset        => l_src_offset,
+                              blob_csid         => DBMS_LOB.default_csid,
+                              lang_context      => l_lang_context,
+                              warning           => l_warning
+                             );
+      -- APEX_JSON.parse(l_clob);
+      apex_json.parse (l_json_index, l_clob);
+-- Loop through all the departments.
+      l_hdr_count :=
+                 apex_json.get_count (p_path        => '.',
+                                      p_values      => l_json_index);
 
-      OPEN c_cur FOR v_stat USING p_clob;
-
+      FOR i IN 1 .. l_hdr_count
       LOOP
-         FETCH c_cur
-          INTO v_rec;
-
-         EXIT WHEN c_cur%NOTFOUND;
          l_rec_num := l_rec_num + 1;
-
-         INSERT INTO xxalg_lpn_lot_split_merge_gt
-                     (record_grp_id, record_num, mobile_transaction_id,
-                      inv_org_id, lot_number,
-                      inventory_item_id, source_lpn_id,
-                      source_sub_inventory, source_locator,
-                      uom_code, dest_lot_number, dest_lpn_id,
-                      dest_sub_inventory, dest_locator,
-                      quantity,
-                      transaction_date,
-                      responsibility_id, user_id
-                     )
-              VALUES (p_group_id, l_rec_num, v_rec.mobiletransactionid,
-                      v_rec.inventoryorgid, v_rec.sourcelotnumber,
-                      v_rec.inventoryitemid, v_rec.sourcelpnid,
-                      v_rec.sourcesubinventorycode, v_rec.sourcelocator,
-                      v_rec.uomcode, v_rec.destlotnumber, v_rec.destlpnid,
-                      v_rec.destsubinventorycode, v_rec.destlocator,
-                      v_rec.quantity,
-                      TO_DATE (v_rec.transactiondate,
-                               'DD-MON-YYYY hh24:MI:SS'),
-                      v_rec.responsibilityid, v_rec.userid
-                     );
-
+         l_gtt_tab.EXTEND;
+         l_gtt_tab (l_gtt_tab.LAST).record_grp_id := p_group_id;
+         l_gtt_tab (l_gtt_tab.LAST).record_num := l_rec_num;
+         l_gtt_tab (l_gtt_tab.LAST).mobile_transaction_id :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].MobileTransactionId',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).inv_org_id :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].InventoryOrgId',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).lot_number :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].SourceLotNumber',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).inventory_item_id :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].InventoryItemId',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).source_lpn_id :=
+            apex_json.get_varchar2 (p_path        => '[' || i
+                                                     || '].SourceLpnId',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).source_sub_inventory :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].SourceSubinventoryCode',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).source_locator :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].SourceLocator',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).uom_code :=
+            apex_json.get_varchar2 (p_path        => '[' || i || '].UomCode',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).dest_lot_number :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].DestLotNumber',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).dest_lpn_id :=
+            apex_json.get_varchar2 (p_path        => '[' || i || '].Destlpnid',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).dest_sub_inventory :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].DestSubinventoryCode',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).dest_locator :=
+            apex_json.get_varchar2 (p_path        => '[' || i
+                                                     || '].DestLocator',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).quantity :=
+            apex_json.get_varchar2 (p_path        => '[' || i || '].Quantity',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).transaction_date :=
+            TO_DATE (apex_json.get_varchar2 (p_path        =>    '['
+                                                              || i
+                                                              || '].TransactionDate',
+                                             p_values      => l_json_index
+                                            ),
+                     'DD-MON-YYYY hh24:MI:SS'
+                    );
+         l_gtt_tab (l_gtt_tab.LAST).user_id :=
+            apex_json.get_varchar2 (p_path        => '[' || i || '].UserId',
+                                    p_values      => l_json_index
+                                   );
+         l_gtt_tab (l_gtt_tab.LAST).responsibility_id :=
+            apex_json.get_varchar2 (p_path        =>    '['
+                                                     || i
+                                                     || '].ResponsibilityId',
+                                    p_values      => l_json_index
+                                   );
          xxprop_common_util_pkg.trace_log
-                                 (p_module            =>    g_package_name
-                                                         || '.'
-                                                         || l_procedure_name,
-                                  p_message_text      => 'Payload',
-                                  p_payload           =>    v_rec.mobiletransactionid
-                                                         || '|'
-                                                         || v_rec.inventoryorgid
-                                                         || '|'
-                                                         || v_rec.sourcelotnumber
-                                                         || '|'
-                                                         || v_rec.inventoryitemid
-                                                         || '|'
-                                                         || v_rec.sourcelpnid
-                                                         || '|'
-                                                         || v_rec.sourcesubinventorycode
-                                                         || '|'
-                                                         || v_rec.sourcelocator
-                                                         || '|'
-                                                         || v_rec.uomcode
-                                                         || '|'
-                                                         || v_rec.destlotnumber
-                                                         || '|'
-                                                         || v_rec.destlpnid
-                                                         || '|'
-                                                         || v_rec.destsubinventorycode
-                                                         || '|'
-                                                         || v_rec.destlocator
-                                                         || '|'
-                                                         || v_rec.quantity
-                                                         || '|'
-                                                         || v_rec.transactiondate
-                                                         || '|'
-                                                         || v_rec.userid
-                                                         || '|'
-                                                         || v_rec.responsibilityid
-                                 );
+              (p_module            => g_package_name || '.'
+                                      || l_procedure_name,
+               p_message_text      => 'Payload',
+               p_payload           =>    l_gtt_tab (l_gtt_tab.LAST).mobile_transaction_id
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).inv_org_id
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).lot_number
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).inventory_item_id
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).source_lpn_id
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).source_sub_inventory
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).source_locator
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).uom_code
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).dest_lot_number
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).dest_lpn_id
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).dest_sub_inventory
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).dest_locator
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).quantity
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).transaction_date
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).user_id
+                                      || '|'
+                                      || l_gtt_tab (l_gtt_tab.LAST).responsibility_id
+              );
       END LOOP;
 
-      CLOSE c_cur;
-
+      FORALL i IN l_gtt_tab.FIRST .. l_gtt_tab.LAST
+         INSERT INTO xxalg_lpn_lot_split_merge_gt
+              VALUES l_gtt_tab (i);
+      DBMS_LOB.freetemporary (lob_loc => l_clob);
       xxprop_common_util_pkg.trace_log
                                     (p_module            =>    g_package_name
                                                             || '.'
@@ -524,21 +827,162 @@ from table(
    EXCEPTION
       WHEN OTHERS
       THEN
+         DBMS_LOB.freetemporary (lob_loc => l_clob);
          x_return_status := 'E';
          l_err_msg :=
-                l_err_msg || 'Exception in insert_lot_split_gtt:-' || SQLERRM;
+               l_err_msg
+            || 'Jason input not correct formate or Invalid Datatype:-'
+            || SQLERRM;
          x_return_msg := l_err_msg;
-         DBMS_OUTPUT.put_line ('Error while insert_lot_split_gtt' || SQLERRM);
+         DBMS_OUTPUT.put_line ('Error while INSERT_LOT_SPLIT_GTT' || SQLERRM);
          -- clear the data in table type so that none of the record will be processed.
-         --p_out_data.DELETE;
+           --p_out_data.DELETE;
          xxprop_common_util_pkg.trace_log
-             (p_module            => g_package_name || '.' || l_procedure_name,
-              p_message_text      =>    'Error Error while insert_lot_split_gtt-'
-                                     || SQLERRM,
-              p_payload           => NULL
-             );
+              (p_module            => g_package_name || '.'
+                                      || l_procedure_name,
+               p_message_text      =>    'Error Error while INSERT_LOT_SPLIT_GTT-'
+                                      || SQLERRM,
+               p_payload           => NULL
+              );
    END insert_lot_split_gtt;
 
+      /*PROCEDURE insert_lot_split_gtt (
+         p_group_id        IN       NUMBER,
+         p_clob            IN       CLOB,
+         x_return_status   IN OUT   VARCHAR2,
+         x_return_msg      IN OUT   VARCHAR2
+      )
+      IS
+         l_return_status    VARCHAR2 (10)      := 'S';
+         l_err_msg          VARCHAR2 (4000);
+         l_wo_index         VARCHAR2 (64);
+         l_rec_num          NUMBER             := 0;
+         v_stat             VARCHAR2 (1000)
+            := q'{
+   select *
+   from table(
+     pljson_table.json_table(
+       :json_str,
+       pljson_varray('[*].MobileTransactionId','[*].InventoryOrgId','[*].SourceLotNumber','[*].InventoryItemId','[*].SourceLpnId','[*].SourceSubinventoryCode','[*].SourceLocator','[*].UomCode','[*].DestLotNumber','[*].Destlpnid','[*].DestSubinventoryCode','[*].DestLocator','[*].Quantity','[*].TransactionDate','[*].UserId','[*].ResponsibilityId'),
+       pljson_varray('MOBILETRANSACTIONID','INVENTORYORGID','SOURCELOTNUMBER','INVENTORYITEMID','SOURCELPNID','SOURCESUBINVENTORYCODE','SOURCELOCATOR','UOMCODE','DESTLOTNUMBER','DESTLPNID','DESTSUBINVENTORYCODE','DESTLOCATOR','QUANTITY','TRANSACTIONDATE','USERID','RESPONSIBILITYID'),
+       table_mode=>'nested'
+     )
+   )
+   }';
+         c_cur              sys_refcursor;
+         v_rec              lot_split_rec_type;
+         l_procedure_name   VARCHAR2 (100)     := 'INSERT_LOT_SPLIT_GTT';
+      BEGIN
+         xxprop_common_util_pkg.trace_log
+                                    (p_module            =>    g_package_name
+                                                            || '.'
+                                                            || l_procedure_name,
+                                     p_message_text      => 'Start of the Procedure',
+                                     p_payload           => NULL
+                                    );
+         xxprop_common_util_pkg.trace_log
+            (p_module            => g_package_name || '.' || l_procedure_name,
+             p_message_text      => 'Payload',
+             p_payload           => 'MOBILETRANSACTIONID|INVENTORYORGID|SOURCELOTNUMBER|INVENTORYITEMID|SOURCELPNID|SOURCESUBINVENTORYCODE|SOURCELOCATOR|UOMCODE|DESTLOTNUMBER|DESTLPNID|DESTSUBINVENTORYCODE|DESTLOCATOR|QUANTITY|TRANSACTIONDATE|USERID|RESPONSIBILITYID'
+            );
+
+         OPEN c_cur FOR v_stat USING p_clob;
+
+         LOOP
+            FETCH c_cur
+             INTO v_rec;
+
+            EXIT WHEN c_cur%NOTFOUND;
+            l_rec_num := l_rec_num + 1;
+
+            INSERT INTO xxalg_lpn_lot_split_merge_gt
+                        (record_grp_id, record_num, mobile_transaction_id,
+                         inv_org_id, lot_number,
+                         inventory_item_id, source_lpn_id,
+                         source_sub_inventory, source_locator,
+                         uom_code, dest_lot_number, dest_lpn_id,
+                         dest_sub_inventory, dest_locator,
+                         quantity,
+                         transaction_date,
+                         responsibility_id, user_id
+                        )
+                 VALUES (p_group_id, l_rec_num, v_rec.mobiletransactionid,
+                         v_rec.inventoryorgid, v_rec.sourcelotnumber,
+                         v_rec.inventoryitemid, v_rec.sourcelpnid,
+                         v_rec.sourcesubinventorycode, v_rec.sourcelocator,
+                         v_rec.uomcode, v_rec.destlotnumber, v_rec.destlpnid,
+                         v_rec.destsubinventorycode, v_rec.destlocator,
+                         v_rec.quantity,
+                         TO_DATE (v_rec.transactiondate,
+                                  'DD-MON-YYYY hh24:MI:SS'),
+                         v_rec.responsibilityid, v_rec.userid
+                        );
+
+            xxprop_common_util_pkg.trace_log
+                                    (p_module            =>    g_package_name
+                                                            || '.'
+                                                            || l_procedure_name,
+                                     p_message_text      => 'Payload',
+                                     p_payload           =>    v_rec.mobiletransactionid
+                                                            || '|'
+                                                            || v_rec.inventoryorgid
+                                                            || '|'
+                                                            || v_rec.sourcelotnumber
+                                                            || '|'
+                                                            || v_rec.inventoryitemid
+                                                            || '|'
+                                                            || v_rec.sourcelpnid
+                                                            || '|'
+                                                            || v_rec.sourcesubinventorycode
+                                                            || '|'
+                                                            || v_rec.sourcelocator
+                                                            || '|'
+                                                            || v_rec.uomcode
+                                                            || '|'
+                                                            || v_rec.destlotnumber
+                                                            || '|'
+                                                            || v_rec.destlpnid
+                                                            || '|'
+                                                            || v_rec.destsubinventorycode
+                                                            || '|'
+                                                            || v_rec.destlocator
+                                                            || '|'
+                                                            || v_rec.quantity
+                                                            || '|'
+                                                            || v_rec.transactiondate
+                                                            || '|'
+                                                            || v_rec.userid
+                                                            || '|'
+                                                            || v_rec.responsibilityid
+                                    );
+         END LOOP;
+
+         CLOSE c_cur;
+
+         xxprop_common_util_pkg.trace_log
+                                       (p_module            =>    g_package_name
+                                                               || '.'
+                                                               || l_procedure_name,
+                                        p_message_text      => 'End of the Procedure',
+                                        p_payload           => NULL
+                                       );
+      EXCEPTION
+         WHEN OTHERS
+         THEN
+            x_return_status := 'E';
+            l_err_msg :=
+                   l_err_msg || 'Exception in insert_lot_split_gtt:-' || SQLERRM;
+            x_return_msg := l_err_msg;
+            DBMS_OUTPUT.put_line ('Error while insert_lot_split_gtt' || SQLERRM);
+            -- clear the data in table type so that none of the record will be processed.
+            --p_out_data.DELETE;
+            xxprop_common_util_pkg.trace_log
+                (p_module            => g_package_name || '.' || l_procedure_name,
+                 p_message_text      =>    'Error Error while insert_lot_split_gtt-'
+                                        || SQLERRM,
+                 p_payload           => NULL
+                );
+      END insert_lot_split_gtt;*/
    PROCEDURE validate_lpn_merge_data (
       p_group_id        IN       NUMBER,
       x_return_status   IN OUT   VARCHAR2,
@@ -1771,7 +2215,7 @@ from table(
                         l_err_msg
                      || '|'
                      || 'Child/Destination LotNumber '
-                     || c_lot_merge_rec.lot_number
+                     || c_lot_merge_rec.dest_lot_number
                      || ' is not Valid ';
                END IF;
             END IF;
@@ -2097,7 +2541,8 @@ from table(
                                            p_payload           => NULL
                                           );
    END validate_lot_merge_data;
-PROCEDURE validate_lot_split_data (
+
+   PROCEDURE validate_lot_split_data (
       p_group_id        IN       NUMBER,
       x_return_status   IN OUT   VARCHAR2,
       x_return_msg      IN OUT   VARCHAR2
@@ -2461,19 +2906,19 @@ PROCEDURE validate_lot_split_data (
                  INTO l_check
                  FROM mtl_lot_numbers
                 WHERE 1 = 1
-                  --inventory_item_id = c_lot_split_rec.inventory_item_id
+                  AND inventory_item_id = c_lot_split_rec.inventory_item_id
                   AND lot_number = c_lot_split_rec.dest_lot_number
                   AND organization_id = c_lot_split_rec.inv_org_id;
 
-               IF l_check = 0
+               IF l_check > 0
                THEN
                   l_record_status := 'E';
                   l_err_msg :=
                         l_err_msg
                      || '|'
                      || 'Child/Destination LotNumber '
-                     || c_lot_split_rec.lot_number
-                     || ' is not Valid ';
+                     || c_lot_split_rec.dest_lot_number
+                     || ' already Exists ';
                END IF;
             END IF;
          END;
@@ -2798,6 +3243,7 @@ PROCEDURE validate_lot_split_data (
                                            p_payload           => NULL
                                           );
    END validate_lot_split_data;
+
    PROCEDURE lpn_merge_interface (
       p_group_id        IN       NUMBER,
       x_return_status   IN OUT   VARCHAR2,
@@ -3051,16 +3497,16 @@ PROCEDURE validate_lot_split_data (
       l_proc_msg             VARCHAR2 (4000);
       l_trx_api_return       NUMBER;
       l_check                NUMBER;
-      l_parent_id            NUMBER;
-      l_txn_if_id1           NUMBER;
-      l_txn_if_id2           NUMBER;
       l_retval               NUMBER;
       l_api_return_status    VARCHAR2 (100);
       l_api_msg_cnt          NUMBER;
       l_api_msg_data         VARCHAR2 (500);
       l_api_trans_count      VARCHAR2 (100);
       l_transaction_set_id   NUMBER;
-      l_txn_if_id3           NUMBER;
+      l_mmt_api_return       VARCHAR2 (100);
+      l_mmt_trx_tmp_id       NUMBER;
+      l_parent_trx_tmp_id    NUMBER;
+      l_ser_trx_id           NUMBER;
 
       --l_scrap_acct_chk   VARCHAR2 (10);
       CURSOR c_lot_merge_cur
@@ -3085,311 +3531,185 @@ PROCEDURE validate_lot_split_data (
          l_record_status := 'I';
          l_proc_msg := NULL;
          l_trx_api_return := NULL;
-         l_parent_id := NULL;
-         l_txn_if_id1 := NULL;
-         l_txn_if_id2 := NULL;
-         l_txn_if_id3 := NULL;
          l_retval := NULL;
          l_api_return_status := NULL;
          l_api_msg_cnt := NULL;
          l_api_msg_data := NULL;
          l_api_trans_count := NULL;
          l_transaction_set_id := NULL;
+         l_parent_trx_tmp_id := NULL;
+         l_mmt_trx_tmp_id := NULL;
+         l_ser_trx_id := NULL;
+         l_check := NULL;
 
          SELECT apps.mtl_material_transactions_s.NEXTVAL
            INTO l_trx_hdr_id
            FROM DUAL;
 
-         SELECT apps.mtl_material_transactions_s.NEXTVAL
-           INTO l_txn_if_id1
-           FROM DUAL;
-
-         l_parent_id := l_txn_if_id1;
-
          BEGIN
-            INSERT INTO mtl_transactions_interface
-                        (transaction_interface_id, transaction_header_id,
-                         source_code, source_line_id, source_header_id,
-                         process_flag, transaction_mode, lock_flag,
-                         last_update_date, last_updated_by, creation_date,
-                         created_by,
-                         organization_id,
-                         transaction_quantity, transaction_uom,
-                         transaction_date,
-                         inventory_item_id, revision,
-                         subinventory_code,
-                         locator_id,
-                         transaction_type_id,
-                         transaction_source_type_id,
-                         transaction_action_id,
-                         primary_quantity, parent_id,
-                         distribution_account_id, transaction_batch_id,
-                         transaction_batch_seq, lpn_id, transfer_lpn_id,cost_group_id
-                        )
-                 VALUES (l_txn_if_id1, l_trx_hdr_id,
-                         'INV', -1, -1,
-                         1, 3, 2,
-                         SYSDATE, c_lot_merge_rec.user_id, SYSDATE,
-                         c_lot_merge_rec.user_id,
-                         c_lot_merge_rec.inv_org_id,
-                         c_lot_merge_rec.quantity*2, c_lot_merge_rec.uom_code,
-                         c_lot_merge_rec.transaction_date,
-                         c_lot_merge_rec.inventory_item_id, NULL,
-                         c_lot_merge_rec.dest_sub_inventory,
-                         c_lot_merge_rec.dest_locator_id,
-                         c_lot_merge_rec.transaction_type_id,
-                         c_lot_merge_rec.transaction_source_type_id,
-                         c_lot_merge_rec.transaction_action_id,
-                         c_lot_merge_rec.quantity*2, l_parent_id,
-                         NULL, l_trx_hdr_id,
-                         1, NULL,             --c_lot_merge_rec.source_lpn_id,
-                                 c_lot_merge_rec.dest_lpn_id,42520
-                        );
+            l_mmt_api_return :=
+               inv_trx_util_pub.insert_line_trx
+                  (p_trx_hdr_id             => l_trx_hdr_id,
+                   p_item_id                => c_lot_merge_rec.inventory_item_id,
+                   p_revision               => NULL,
+                   p_org_id                 => c_lot_merge_rec.inv_org_id,
+                   p_trx_action_id          => c_lot_merge_rec.transaction_action_id,
+                   p_subinv_code            => c_lot_merge_rec.source_sub_inventory,
+                   p_tosubinv_code          => NULL,
+                   p_locator_id             => c_lot_merge_rec.source_locator_id,
+                   p_tolocator_id           => NULL,
+                   p_xfr_org_id             => NULL,
+                   p_trx_type_id            => c_lot_merge_rec.transaction_type_id,
+                   p_trx_src_type_id        => c_lot_merge_rec.transaction_source_type_id,
+                   p_trx_qty                => (c_lot_merge_rec.quantity)* (-1),
+                   p_pri_qty                => (c_lot_merge_rec.quantity)* (-1),
+                   p_uom                    => c_lot_merge_rec.uom_code,
+                   p_date                   => c_lot_merge_rec.transaction_date,
+                   p_reason_id              => NULL,
+                   p_user_id                => c_lot_merge_rec.user_id,
+                   p_frt_code               => NULL,
+                   p_ship_num               => NULL,
+                   p_dist_id                => NULL,
+                   p_way_bill               => NULL,
+                   p_exp_arr                => NULL,
+                   p_cost_group             => 42520,
+                   p_from_lpn_id            => c_lot_merge_rec.source_lpn_id,
+                   p_cnt_lpn_id             => NULL,
+                   p_xfr_lpn_id             => NULL,
+                   p_trx_src_id             => NULL,
+                   p_xfr_cost_group         => NULL,
+                   p_completion_trx_id      => NULL,
+                   p_flow_schedule          => NULL,
+                   p_trx_cost               => NULL,
+                   p_project_id             => NULL,
+                   p_task_id                => NULL,
+                   p_secondary_trx_qty      => NULL,
+                   p_secondary_uom          => NULL,
+                   x_trx_tmp_id             => l_mmt_trx_tmp_id,
+                   x_proc_msg               => l_proc_msg
+                  );
+            l_parent_trx_tmp_id := l_mmt_trx_tmp_id;
 
---Insert MTLI corresponding to the resultant MTI record
-            INSERT INTO mtl_transaction_lots_interface
-                        (transaction_interface_id,
-                         source_code, source_line_id,
-                         process_flag, last_update_date,
-                         last_updated_by,
-                         creation_date,
-                         created_by,
-                         lot_number,
-                         lot_expiration_date,
-                         transaction_quantity,
-                         primary_quantity
-                        )
-                 VALUES (l_txn_if_id1               --transaction_interface_id
-                                     ,
-                         'INV'                                   --Source_Code
-                              , -1                            --Source_Line_Id
-                                  ,
-                         'Y'                                    --Process_Flag
-                            , SYSDATE                       --Last_Update_Date
-                                     ,
-                         c_lot_merge_rec.user_id             --Last_Updated_by
-                                                ,
-                         SYSDATE                               --Creation_date
-                                ,
-                         c_lot_merge_rec.user_id                  --Created_By
-                                                ,
-                         c_lot_merge_rec.dest_lot_number          --Lot_Number
-                                                        ,
-                         NULL                            --Lot_Expiration_Date
-                             ,
-                         c_lot_merge_rec.quantity*2       --transaction_quantity
-                                                 ,
-                         c_lot_merge_rec.quantity*2           --primary_quantity
-                        );
+            UPDATE mtl_material_transactions_temp
+               SET transaction_batch_seq = l_mmt_trx_tmp_id
+             WHERE transaction_header_id = l_trx_hdr_id
+               AND transaction_temp_id = l_mmt_trx_tmp_id;
 
-            SELECT apps.mtl_material_transactions_s.NEXTVAL
-              INTO l_txn_if_id2
-              FROM DUAL;
+            xxprop_common_util_pkg.trace_log
+               (p_module            => g_package_name || '.'
+                                       || l_procedure_name,
+                p_message_text      =>    '1 Inserted into MMT Temp Table l_mmt_api_return-'
+                                       || l_mmt_api_return
+                                       || ' l_mmt_trx_tmp_id-'
+                                       || l_mmt_trx_tmp_id
+                                       || ' l_proc_msg-'
+                                       || l_proc_msg,
+                p_payload           => NULL
+               );
+            l_proc_msg := NULL;
+            l_ser_trx_id := NULL;
+            l_mmt_api_return := NULL;
+            l_mmt_api_return :=
+               inv_trx_util_pub.insert_lot_trx
+                                  (p_trx_tmp_id         => l_mmt_trx_tmp_id,
+                                   p_user_id            => c_lot_merge_rec.user_id,
+                                   p_lot_number         => c_lot_merge_rec.lot_number,
+                                   p_trx_qty            => (c_lot_merge_rec.quantity
+                                                           )* (-1),
+                                   p_pri_qty            => (c_lot_merge_rec.quantity
+                                                           )* (-1),
+                                   p_secondary_uom      => NULL,
+                                   p_secondary_qty      => NULL,
+                                   x_ser_trx_id         => l_ser_trx_id,
+                                   x_proc_msg           => l_proc_msg
+                                  );
+            l_mmt_trx_tmp_id := NULL;
+            l_proc_msg := NULL;
+            l_mmt_api_return := NULL;
+            l_mmt_api_return :=
+               inv_trx_util_pub.insert_line_trx
+                  (p_trx_hdr_id             => l_trx_hdr_id,
+                   p_item_id                => c_lot_merge_rec.inventory_item_id,
+                   p_revision               => NULL,
+                   p_org_id                 => c_lot_merge_rec.inv_org_id,
+                   p_trx_action_id          => c_lot_merge_rec.transaction_action_id,
+                   p_subinv_code            => c_lot_merge_rec.dest_sub_inventory,
+                   p_tosubinv_code          => NULL,
+                   p_locator_id             => c_lot_merge_rec.dest_locator_id,
+                   p_tolocator_id           => NULL,
+                   p_xfr_org_id             => NULL,
+                   p_trx_type_id            => c_lot_merge_rec.transaction_type_id,
+                   p_trx_src_type_id        => c_lot_merge_rec.transaction_source_type_id,
+                   p_trx_qty                =>   (c_lot_merge_rec.quantity)
+                                               ,
+                   p_pri_qty                =>   (c_lot_merge_rec.quantity)
+                                               ,
+                   p_uom                    => c_lot_merge_rec.uom_code,
+                   p_date                   => c_lot_merge_rec.transaction_date,
+                   p_reason_id              => NULL,
+                   p_user_id                => c_lot_merge_rec.user_id,
+                   p_frt_code               => NULL,
+                   p_ship_num               => NULL,
+                   p_dist_id                => NULL,
+                   p_way_bill               => NULL,
+                   p_exp_arr                => NULL,
+                   p_cost_group             => 42520,
+                   p_from_lpn_id            => NULL,
+                   p_cnt_lpn_id             => NULL,
+                   p_xfr_lpn_id             => c_lot_merge_rec.dest_lpn_id,
+                   p_trx_src_id             => NULL,
+                   p_xfr_cost_group         => NULL,
+                   p_completion_trx_id      => NULL,
+                   p_flow_schedule          => NULL,
+                   p_trx_cost               => NULL,
+                   p_project_id             => NULL,
+                   p_task_id                => NULL,
+                   p_secondary_trx_qty      => NULL,
+                   p_secondary_uom          => NULL,
+                   x_trx_tmp_id             => l_mmt_trx_tmp_id,
+                   x_proc_msg               => l_proc_msg
+                  );
 
---Populate the MTI record for Source record-1
-            INSERT INTO mtl_transactions_interface
-                        (transaction_interface_id, transaction_header_id,
-                         source_code, source_line_id, source_header_id,
-                         process_flag, transaction_mode, lock_flag,
-                         inventory_item_id, revision,
-                         organization_id,
-                         subinventory_code,
-                         locator_id,
-                         transaction_type_id,
-                         transaction_source_type_id,
-                         transaction_action_id,
-                         transaction_quantity,
-                         transaction_uom,
-                         primary_quantity,
-                         transaction_date, last_update_date,
-                         last_updated_by, creation_date,
-                         created_by, distribution_account_id, parent_id,
-                         transaction_batch_id, transaction_batch_seq, lpn_id,
-                         transfer_lpn_id,cost_group_id
-                        )
-                 VALUES (l_txn_if_id2,                 --transaction_header_id
-                                      l_trx_hdr_id, --transaction_interface_id
-                         'INV',                                  --source_code
-                               -1,                          --source_header_id
-                                  -1,                         --source_line_id
-                         1,                                     --process_flag
-                           3,                               --transaction_mode
-                             2,                                    --lock_flag
-                         c_lot_merge_rec.inventory_item_id,
-                                                           --inventory_item_id
-                         NULL,                                      --revision
-                         c_lot_merge_rec.inv_org_id,         --organization_id
-                         c_lot_merge_rec.dest_sub_inventory,
-                         --subinventory_code
-                         c_lot_merge_rec.dest_locator_id,       --locator_id
-                         c_lot_merge_rec.transaction_type_id,
-                         --transaction_type_id
-                         c_lot_merge_rec.transaction_source_type_id,
-                         --transaction_source_type_id
-                         c_lot_merge_rec.transaction_action_id,
-                         
-                         --transaction_action_id
-                         (c_lot_merge_rec.quantity
-                         ) * (-1),                      --transaction_quantity
-                         c_lot_merge_rec.uom_code,
-                         
-                         --transaction_uom
-                         (c_lot_merge_rec.quantity) * (-1), --primary_quantity
-                         c_lot_merge_rec.transaction_date,  --Transaction_Date
-                                                          SYSDATE,
-                         --Last_Update_Date
-                         c_lot_merge_rec.user_id,            --Last_Updated_by
-                                                 SYSDATE,      --Creation_Date
-                         c_lot_merge_rec.user_id,                 --Created_by
-                                                 NULL,
-                                                      --distribution_account_id
-                                                      l_parent_id, --parent_id
-                         l_trx_hdr_id,                  --transaction_batch_id
-                                      2,               --transaction_batch_seq
-                                        c_lot_merge_rec.source_lpn_id,
-                         --lpn_id (for source MTI)
-                         NULL                  ,42520
-                        );
+            UPDATE mtl_material_transactions_temp
+               SET transaction_batch_seq = l_mmt_trx_tmp_id
+             WHERE transaction_header_id = l_trx_hdr_id
+               AND transaction_temp_id = l_mmt_trx_tmp_id;
 
---Insert MTLI corresponding to the Source record-1
-            INSERT INTO mtl_transaction_lots_interface
-                        (transaction_interface_id,
-                         source_code, source_line_id,
-                         process_flag, last_update_date,
-                         last_updated_by,
-                         creation_date,
-                         created_by,
-                         lot_number,
-                         lot_expiration_date,
-                         transaction_quantity,
-                         primary_quantity
-                        )
-                 VALUES (l_txn_if_id2               --transaction_interface_id
-                                     ,
-                         'INV'                                   --Source_Code
-                              , -1                            --Source_Line_Id
-                                  ,
-                         'Y'                                    --Process_Flag
-                            , SYSDATE                       --Last_Update_Date
-                                     ,
-                         c_lot_merge_rec.user_id             --Last_Updated_by
-                                                ,
-                         SYSDATE                               --Creation_date
-                                ,
-                         c_lot_merge_rec.user_id                  --Created_By
-                                                ,
-                         c_lot_merge_rec.dest_lot_number               --Lot_Number
-                                                   ,
-                         NULL                            --Lot_Expiration_Date
-                             ,
-                         (c_lot_merge_rec.quantity) * (-1),
-                         (c_lot_merge_rec.quantity
-                         ) * (-1)
-                        );
+            xxprop_common_util_pkg.trace_log
+               (p_module            => g_package_name || '.'
+                                       || l_procedure_name,
+                p_message_text      =>    '2 Inserted into MMT Temp Table l_mmt_api_return-'
+                                       || l_mmt_api_return
+                                       || ' l_mmt_trx_tmp_id-'
+                                       || l_mmt_trx_tmp_id
+                                       || ' l_proc_msg-'
+                                       || l_proc_msg,
+                p_payload           => NULL
+               );
+            l_proc_msg := NULL;
+            l_ser_trx_id := NULL;
+            l_mmt_api_return := NULL;
+            l_mmt_api_return :=
+               inv_trx_util_pub.insert_lot_trx
+                             (p_trx_tmp_id         => l_mmt_trx_tmp_id,
+                              p_user_id            => c_lot_merge_rec.user_id,
+                              p_lot_number         => c_lot_merge_rec.dest_lot_number,
+                              p_trx_qty            =>   (c_lot_merge_rec.quantity
+                                                        )
+                                                      ,
+                              p_pri_qty            =>   (c_lot_merge_rec.quantity
+                                                        )
+                                                      ,
+                              p_secondary_uom      => NULL,
+                              p_secondary_qty      => NULL,
+                              x_ser_trx_id         => l_ser_trx_id,
+                              x_proc_msg           => l_proc_msg
+                             );
+            DBMS_OUTPUT.put_line ('l_ser_trx_id-' || l_ser_trx_id);
 
-            SELECT apps.mtl_material_transactions_s.NEXTVAL
-              INTO l_txn_if_id3
-              FROM DUAL;
-
-            INSERT INTO mtl_transactions_interface
-                        (transaction_interface_id, transaction_header_id,
-                         source_code, source_line_id, source_header_id,
-                         process_flag, transaction_mode, lock_flag,
-                         inventory_item_id, revision,
-                         organization_id,
-                         subinventory_code,
-                         locator_id,
-                         transaction_type_id,
-                         transaction_source_type_id,
-                         transaction_action_id,
-                         transaction_quantity,
-                         transaction_uom,
-                         primary_quantity,
-                         transaction_date, last_update_date,
-                         last_updated_by, creation_date,
-                         created_by, distribution_account_id, parent_id,
-                         transaction_batch_id, transaction_batch_seq, lpn_id,
-                         transfer_lpn_id,cost_group_id
-                        )
-                 VALUES (l_txn_if_id3,                 --transaction_header_id
-                                      l_trx_hdr_id, --transaction_interface_id
-                         'INV',                                  --source_code
-                               -1,                          --source_header_id
-                                  -1,                         --source_line_id
-                         1,                                     --process_flag
-                           3,                               --transaction_mode
-                             2,                                    --lock_flag
-                         c_lot_merge_rec.inventory_item_id,
-                                                           --inventory_item_id
-                         NULL,                                      --revision
-                         c_lot_merge_rec.inv_org_id,         --organization_id
-                         c_lot_merge_rec.source_sub_inventory,
-                         --subinventory_code
-                         c_lot_merge_rec.source_locator_id,       --locator_id
-                         c_lot_merge_rec.transaction_type_id,
-                         --transaction_type_id
-                         c_lot_merge_rec.transaction_source_type_id,
-                         --transaction_source_type_id
-                         c_lot_merge_rec.transaction_action_id,
-                         
-                         --transaction_action_id
-                         (c_lot_merge_rec.quantity
-                         ) * (-1),                      --transaction_quantity
-                         c_lot_merge_rec.uom_code,
-                         
-                         --transaction_uom
-                         (c_lot_merge_rec.quantity) * (-1), --primary_quantity
-                         c_lot_merge_rec.transaction_date,  --Transaction_Date
-                                                          SYSDATE,
-                         --Last_Update_Date
-                         c_lot_merge_rec.user_id,            --Last_Updated_by
-                                                 SYSDATE,      --Creation_Date
-                         c_lot_merge_rec.user_id,                 --Created_by
-                                                 NULL,
-                                                      --distribution_account_id
-                                                      l_parent_id, --parent_id
-                         l_trx_hdr_id,                  --transaction_batch_id
-                                      3,               --transaction_batch_seq
-                                        c_lot_merge_rec.source_lpn_id,
-                         --lpn_id (for source MTI)
-                         NULL ,42520
-                        );
-
---Insert MTLI corresponding to the Source record-1
-            INSERT INTO mtl_transaction_lots_interface
-                        (transaction_interface_id,
-                         source_code, source_line_id,
-                         process_flag, last_update_date,
-                         last_updated_by,
-                         creation_date,
-                         created_by,
-                         lot_number,
-                         lot_expiration_date,
-                         transaction_quantity,
-                         primary_quantity
-                        )
-                 VALUES (l_txn_if_id3               --transaction_interface_id
-                                     ,
-                         'INV'                                   --Source_Code
-                              , -1                            --Source_Line_Id
-                                  ,
-                         'Y'                                    --Process_Flag
-                            , SYSDATE                       --Last_Update_Date
-                                     ,
-                         c_lot_merge_rec.user_id             --Last_Updated_by
-                                                ,
-                         SYSDATE                               --Creation_date
-                                ,
-                         c_lot_merge_rec.user_id                  --Created_By
-                                                ,
-                         c_lot_merge_rec.lot_number               --Lot_Number
-                                                   ,
-                         NULL                            --Lot_Expiration_Date
-                             ,
-                         (c_lot_merge_rec.quantity) * (-1),
-                         (c_lot_merge_rec.quantity
-                         ) * (-1)
-                        );
+            UPDATE mtl_material_transactions_temp
+               SET parent_transaction_temp_id = l_parent_trx_tmp_id
+             WHERE transaction_header_id = l_trx_hdr_id;
          EXCEPTION
             WHEN OTHERS
             THEN
@@ -3410,43 +3730,38 @@ PROCEDURE validate_lot_split_data (
 
          IF l_record_status <> 'E'
          THEN
-            l_retval :=
-               apps.inv_txn_manager_pub.process_transactions
-                           (p_api_version           => 1.0,
-                            p_init_msg_list         => fnd_api.g_false,
-                            p_commit                => fnd_api.g_false,
-                            p_validation_level      => fnd_api.g_valid_level_full,
-                            x_return_status         => l_api_return_status,
-                            x_msg_count             => l_api_msg_cnt,
-                            x_msg_data              => l_api_msg_data,
-                            x_trans_count           => l_api_trans_count,
-                            p_table                 => 1,
-                            p_header_id             => l_trx_hdr_id
-                           );
-            xxprop_common_util_pkg.trace_log
-               (p_module            => g_package_name || '.'
-                                       || l_procedure_name,
-                p_message_text      =>    'inv_txn_manager_pub.process_transactions API Status-'
-                                       || l_api_return_status
-                                       || '  API Message:-'
-                                       || l_api_msg_data,
-                p_payload           => NULL
-               );
+            l_proc_msg := NULL;
+            l_trx_api_return :=
+               inv_lpn_trx_pub.process_lpn_trx
+                                            (p_trx_hdr_id              => l_trx_hdr_id,
+                                             p_commit                  => fnd_api.g_false,
+                                             x_proc_msg                => l_proc_msg,
+                                             p_proc_mode               => NULL,
+                                             p_process_trx             => fnd_api.g_true,
+                                             p_atomic                  => fnd_api.g_false,
+                                             p_business_flow_code      => 20
+                                            );
 
-            IF l_retval = 0 AND l_api_return_status = 'S'
+            IF l_trx_api_return = 0
             THEN
                BEGIN
-                  SELECT MAX (transaction_set_id)
-                    INTO l_transaction_set_id
+                  SELECT COUNT (*)
+                    INTO l_check
                     FROM mtl_material_transactions
                    WHERE transaction_set_id = l_trx_hdr_id;
                EXCEPTION
                   WHEN OTHERS
                   THEN
-                     l_transaction_set_id := NULL;
+                     l_check := 0;
                END;
 
-               IF l_transaction_set_id IS NOT NULL
+               DBMS_OUTPUT.put_line (   ' l_mmt_trx_tmp_id-'
+                                     || l_mmt_trx_tmp_id
+                                     || '  l_trx_hdr_id'
+                                     || l_trx_hdr_id
+                                    );
+
+               IF l_check > 0
                THEN
                   UPDATE xxalg_lpn_lot_split_merge_gt
                      SET record_status = 'S',
@@ -3455,114 +3770,628 @@ PROCEDURE validate_lot_split_data (
                    WHERE record_num = c_lot_merge_rec.record_num
                      AND record_grp_id = p_group_id;
 
-                  --COMMIT;
-                  xxprop_common_util_pkg.trace_log
-                     (p_module            =>    g_package_name
-                                             || '.'
-                                             || l_procedure_name,
-                      p_message_text      =>    'Lot Split Transaction Completed with transaction_set_id-'
-                                             || l_transaction_set_id,
-                      p_payload           => NULL
-                     );
+                  COMMIT;
                ELSE
-                  --ROLLBACK;
+                  ROLLBACK;
+                  l_record_status := 'E';
                   l_err_msg :=
-                             'Error Packing:-TransactionSet ID not generated';
+                        l_err_msg
+                     || '|'
+                     || 'Error While Process Lpn Transaction, Transaction Set Id not Created-'
+                     || l_proc_msg;
 
-                  /*UPDATE xxalg_wip_mo_tran_gt
-                     SET record_status = 'E',
-                         record_message = record_message || '|' || l_err_msg
-                   WHERE record_grp_id = g_record_id
-                         AND record_num = p_record_num;*/
                   UPDATE xxalg_lpn_lot_split_merge_gt
                      SET record_status = 'E',
-                         record_message = record_message || '|' || l_err_msg
+                         record_message = l_err_msg
                    WHERE record_num = c_lot_merge_rec.record_num
                      AND record_grp_id = p_group_id;
 
-                  /*DELETE FROM mtl_transaction_lots_interface mtli
-                        WHERE EXISTS (
-                                 SELECT 1
-                                   FROM mtl_transactions_interface mti
-                                  WHERE mti.transaction_header_id =
-                                                                  l_trx_hdr_id
-                                    AND mtli.transaction_interface_id =
-                                                  mti.transaction_interface_id);
-
-                  DELETE FROM mtl_transactions_interface
-                        WHERE transaction_header_id = l_trx_hdr_id;*/
-
-                  --COMMIT;
+                  COMMIT;
                   xxprop_common_util_pkg.trace_log
                      (p_module            =>    g_package_name
                                              || '.'
                                              || l_procedure_name,
-                      p_message_text      => 'Delete record from mtl_transactions_interface when l_transaction_set_id is null',
+                      p_message_text      =>    'Error While Process Lpn Transaction, Transaction Set Id not Created-'
+                                             || l_proc_msg,
                       p_payload           => NULL
                      );
                END IF;
             ELSE
-               BEGIN
-                  SELECT 'Error Lot Merge:-' || error_explanation
-                    INTO l_err_msg
-                    FROM mtl_transactions_interface
-                   WHERE transaction_header_id = l_trx_hdr_id
-                     AND error_explanation IS NOT NULL
-                     AND ROWNUM = 1;
-               EXCEPTION
-                  WHEN OTHERS
-                  THEN
-                     l_err_msg := NULL;
-               END;
+               ROLLBACK;
+               l_record_status := 'E';
+               l_err_msg :=
+                     l_err_msg
+                  || '|'
+                  || 'Error While Process Lpn Transaction-'
+                  || l_proc_msg;
 
-               --ROLLBACK;
                UPDATE xxalg_lpn_lot_split_merge_gt
                   SET record_status = 'E',
-                      record_message = record_message || '|' || l_err_msg
+                      record_message = l_err_msg
                 WHERE record_num = c_lot_merge_rec.record_num
                   AND record_grp_id = p_group_id;
 
-               /*DELETE FROM mtl_transaction_lots_interface mtli
-                     WHERE EXISTS (
-                              SELECT 1
-                                FROM mtl_transactions_interface mti
-                               WHERE mti.transaction_header_id = l_trx_hdr_id
-                                 AND mtli.transaction_interface_id =
-                                                  mti.transaction_interface_id);
-
-               DELETE FROM mtl_transactions_interface
-                     WHERE transaction_header_id = l_trx_hdr_id;*/
-
-               --COMMIT;
+               COMMIT;
                xxprop_common_util_pkg.trace_log
                   (p_module            =>    g_package_name
                                           || '.'
                                           || l_procedure_name,
-                   p_message_text      => 'Delete record from mtl_transactions_interface when API get error',
+                   p_message_text      =>    'Error While Process Lpn Transaction-'
+                                          || l_proc_msg,
                    p_payload           => NULL
                   );
             END IF;
          ELSE
-            --ROLLBACK;
+            ROLLBACK;
+            l_record_status := 'E';
+            l_err_msg :=
+                  l_err_msg
+               || '|'
+               || 'Error While Inserting MMT api-'
+               || l_proc_msg;
+
             UPDATE xxalg_lpn_lot_split_merge_gt
                SET record_status = 'E',
-                   record_message = record_message || '|' || l_err_msg
+                   record_message = l_err_msg
              WHERE record_num = c_lot_merge_rec.record_num
                AND record_grp_id = p_group_id;
 
-            /*DELETE FROM mtl_transaction_lots_interface mtli
-                  WHERE EXISTS (
-                           SELECT 1
-                             FROM mtl_transactions_interface mti
-                            WHERE mti.transaction_header_id = l_trx_hdr_id
-                              AND mtli.transaction_interface_id =
-                                                  mti.transaction_interface_id);
-
-            DELETE FROM mtl_transactions_interface
-                  WHERE transaction_header_id = l_trx_hdr_id;*/
-
-            --COMMIT;
+            COMMIT;
             xxprop_common_util_pkg.trace_log
+                       (p_module            =>    g_package_name
+                                               || '.'
+                                               || l_procedure_name,
+                        p_message_text      =>    'Error While Inserting MMT api-'
+                                               || l_proc_msg,
+                        p_payload           => NULL
+                       );
+         END IF;
+      END LOOP;
+
+      xxprop_common_util_pkg.trace_log
+                                    (p_module            =>    g_package_name
+                                                            || '.'
+                                                            || l_procedure_name,
+                                     p_message_text      => 'End of the Procedure',
+                                     p_payload           => NULL
+                                    );
+   EXCEPTION
+      WHEN OTHERS
+      THEN
+         x_return_status := 'E';
+         x_return_msg := 'Exception in lot_merge_interface:-' || SQLERRM;
+         xxprop_common_util_pkg.trace_log (p_module            =>    g_package_name
+                                                                  || '.'
+                                                                  || l_procedure_name,
+                                           p_message_text      => x_return_msg,
+                                           p_payload           => NULL
+                                          );
+   END lot_merge_interface;
+
+      /*PROCEDURE lot_merge_interface (
+         p_group_id        IN       NUMBER,
+         x_return_status   IN OUT   VARCHAR2,
+         x_return_msg      IN OUT   VARCHAR2
+      )
+      IS
+         l_procedure_name       VARCHAR2 (200)  := 'LOT_MERGE_INTERFACE';
+         l_transaction_id       NUMBER;
+         l_err_msg              VARCHAR2 (1000);
+         l_record_status        VARCHAR2 (10);
+         l_trx_hdr_id           NUMBER;
+         l_proc_msg             VARCHAR2 (4000);
+         l_trx_api_return       NUMBER;
+         l_check                NUMBER;
+         l_parent_id            NUMBER;
+         l_txn_if_id1           NUMBER;
+         l_txn_if_id2           NUMBER;
+         l_retval               NUMBER;
+         l_api_return_status    VARCHAR2 (100);
+         l_api_msg_cnt          NUMBER;
+         l_api_msg_data         VARCHAR2 (500);
+         l_api_trans_count      VARCHAR2 (100);
+         l_transaction_set_id   NUMBER;
+         l_txn_if_id3           NUMBER;
+
+         --l_scrap_acct_chk   VARCHAR2 (10);
+         CURSOR c_lot_merge_cur
+         IS
+            SELECT   *
+                FROM xxalg_lpn_lot_split_merge_gt
+               WHERE record_grp_id = p_group_id AND record_status = 'V'
+            ORDER BY mobile_transaction_id, transaction_date ASC;
+      BEGIN
+         xxprop_common_util_pkg.trace_log
+                                    (p_module            =>    g_package_name
+                                                            || '.'
+                                                            || l_procedure_name,
+                                     p_message_text      => 'Start of the Procedure',
+                                     p_payload           => NULL
+                                    );
+         COMMIT;
+
+         FOR c_lot_merge_rec IN c_lot_merge_cur
+         LOOP
+
+            l_err_msg := NULL;
+            l_record_status := 'I';
+            l_proc_msg := NULL;
+            l_trx_api_return := NULL;
+            l_parent_id := NULL;
+            l_txn_if_id1 := NULL;
+            l_txn_if_id2 := NULL;
+            l_txn_if_id3 := NULL;
+            l_retval := NULL;
+            l_api_return_status := NULL;
+            l_api_msg_cnt := NULL;
+            l_api_msg_data := NULL;
+            l_api_trans_count := NULL;
+            l_transaction_set_id := NULL;
+
+            SELECT apps.mtl_material_transactions_s.NEXTVAL
+              INTO l_trx_hdr_id
+              FROM DUAL;
+
+            SELECT apps.mtl_material_transactions_s.NEXTVAL
+              INTO l_txn_if_id1
+              FROM DUAL;
+
+            l_parent_id := l_txn_if_id1;
+
+            BEGIN
+               INSERT INTO mtl_transactions_interface
+                           (transaction_interface_id, transaction_header_id,
+                            source_code, source_line_id, source_header_id,
+                            process_flag, transaction_mode, lock_flag,
+                            last_update_date, last_updated_by, creation_date,
+                            created_by,
+                            organization_id, transaction_quantity,
+                            transaction_uom,
+                            transaction_date,
+                            inventory_item_id, revision,
+                            subinventory_code,
+                            locator_id,
+                            transaction_type_id,
+                            transaction_source_type_id,
+                            transaction_action_id, primary_quantity,
+                            parent_id, distribution_account_id,
+                            transaction_batch_id, transaction_batch_seq,
+                            lpn_id, transfer_lpn_id, cost_group_id
+                           )
+                    VALUES (l_txn_if_id1, l_trx_hdr_id,
+                            'INV', -1, -1,
+                            1, 3, 2,
+                            SYSDATE, c_lot_merge_rec.user_id, SYSDATE,
+                            c_lot_merge_rec.user_id,
+                            c_lot_merge_rec.inv_org_id, 2,
+                            --c_lot_merge_rec.quantity * 2,
+                            c_lot_merge_rec.uom_code,
+                            c_lot_merge_rec.transaction_date,
+                            c_lot_merge_rec.inventory_item_id, NULL,
+                            c_lot_merge_rec.dest_sub_inventory,
+                            c_lot_merge_rec.dest_locator_id,
+                            c_lot_merge_rec.transaction_type_id,
+                            c_lot_merge_rec.transaction_source_type_id,
+                            c_lot_merge_rec.transaction_action_id, 2,
+                            --c_lot_merge_rec.quantity * 2,
+                            l_parent_id, NULL,
+                            l_trx_hdr_id, l_txn_if_id1,
+                            c_lot_merge_rec.dest_lpn_id,
+                                                        --c_lot_merge_rec.source_lpn_id,
+                            NULL,
+                                 --c_lot_merge_rec.dest_lpn_id,
+                            42520
+                           );
+
+   --Insert MTLI corresponding to the resultant MTI record
+               INSERT INTO mtl_transaction_lots_interface
+                           (transaction_interface_id,
+                            source_code, source_line_id,
+                            process_flag, last_update_date,
+                            last_updated_by,
+                            creation_date,
+                            created_by,
+                            lot_number,
+                            lot_expiration_date, transaction_quantity,
+                            primary_quantity
+                           )
+                    VALUES (l_txn_if_id1               --transaction_interface_id
+                                        ,
+                            'INV'                                   --Source_Code
+                                 , -1                            --Source_Line_Id
+                                     ,
+                            'Y'                                    --Process_Flag
+                               , SYSDATE                       --Last_Update_Date
+                                        ,
+                            c_lot_merge_rec.user_id             --Last_Updated_by
+                                                   ,
+                            SYSDATE                               --Creation_date
+                                   ,
+                            c_lot_merge_rec.user_id                  --Created_By
+                                                   ,
+                            c_lot_merge_rec.dest_lot_number          --Lot_Number
+                                                           ,
+                            NULL                            --Lot_Expiration_Date
+                                , 2,             --c_lot_merge_rec.quantity * 2 ,
+                            2
+                           --c_lot_merge_rec.quantity * 2       --primary_quantity
+                           );
+
+               SELECT apps.mtl_material_transactions_s.NEXTVAL
+                 INTO l_txn_if_id2
+                 FROM DUAL;
+
+   --Populate the MTI record for Source record-1
+               INSERT INTO mtl_transactions_interface
+                           (transaction_interface_id, transaction_header_id,
+                            source_code, source_line_id, source_header_id,
+                            process_flag, transaction_mode, lock_flag,
+                            inventory_item_id, revision,
+                            organization_id,
+                            subinventory_code,
+                            locator_id,
+                            transaction_type_id,
+                            transaction_source_type_id,
+                            transaction_action_id, transaction_quantity,
+                            transaction_uom, primary_quantity,
+                            transaction_date, last_update_date,
+                            last_updated_by, creation_date,
+                            created_by, distribution_account_id, parent_id,
+                            transaction_batch_id, transaction_batch_seq,
+                            lpn_id, transfer_lpn_id, cost_group_id
+                           )
+                    VALUES (l_txn_if_id2,                 --transaction_header_id
+                                         l_trx_hdr_id, --transaction_interface_id
+                            'INV',                                  --source_code
+                                  -1,                          --source_header_id
+                                     -1,                         --source_line_id
+                            1,                                     --process_flag
+                              3,                               --transaction_mode
+                                2,                                    --lock_flag
+                            c_lot_merge_rec.inventory_item_id,
+                                                              --inventory_item_id
+                            NULL,                                      --revision
+                            c_lot_merge_rec.inv_org_id,         --organization_id
+                            c_lot_merge_rec.dest_sub_inventory,
+                            --subinventory_code
+                            c_lot_merge_rec.dest_locator_id,         --locator_id
+                            c_lot_merge_rec.transaction_type_id,
+                            --transaction_type_id
+                            c_lot_merge_rec.transaction_source_type_id,
+                            --transaction_source_type_id
+                            c_lot_merge_rec.transaction_action_id,
+                                                                  --transaction_action_id
+                            -1,              --(c_lot_merge_rec.quantity) * (-1),
+                            c_lot_merge_rec.uom_code,
+                                                     --transaction_uom
+                            -1,
+                            --(c_lot_merge_rec.quantity) * (-1), --primary_quantity
+                            c_lot_merge_rec.transaction_date,  --Transaction_Date
+                                                             SYSDATE,
+                            --Last_Update_Date
+                            c_lot_merge_rec.user_id,            --Last_Updated_by
+                                                    SYSDATE,      --Creation_Date
+                            c_lot_merge_rec.user_id,                 --Created_by
+                                                    NULL,
+                                                         --distribution_account_id
+                                                         l_parent_id, --parent_id
+                            l_trx_hdr_id,                  --transaction_batch_id
+                                         l_txn_if_id2,    --transaction_batch_seq
+                            c_lot_merge_rec.dest_lpn_id,
+                                                        --lpn_id (for source MTI)
+                            NULL,                  --c_lot_merge_rec.dest_lpn_id,
+                                 42520
+                           );
+
+   --Insert MTLI corresponding to the Source record-1
+               INSERT INTO mtl_transaction_lots_interface
+                           (transaction_interface_id,
+                            source_code, source_line_id,
+                            process_flag, last_update_date,
+                            last_updated_by,
+                            creation_date,
+                            created_by,
+                            lot_number,
+                            lot_expiration_date, transaction_quantity,
+                            primary_quantity
+                           )
+                    VALUES (l_txn_if_id2               --transaction_interface_id
+                                        ,
+                            'INV'                                   --Source_Code
+                                 , -1                            --Source_Line_Id
+                                     ,
+                            'Y'                                    --Process_Flag
+                               , SYSDATE                       --Last_Update_Date
+                                        ,
+                            c_lot_merge_rec.user_id             --Last_Updated_by
+                                                   ,
+                            SYSDATE                               --Creation_date
+                                   ,
+                            c_lot_merge_rec.user_id                  --Created_By
+                                                   ,
+                            c_lot_merge_rec.dest_lot_number          --Lot_Number
+                                                           ,
+                            NULL                            --Lot_Expiration_Date
+                                , -1,        --(c_lot_merge_rec.quantity) * (-1),
+                            -1                --(c_lot_merge_rec.quantity) * (-1)
+                           );
+
+               SELECT apps.mtl_material_transactions_s.NEXTVAL
+                 INTO l_txn_if_id3
+                 FROM DUAL;
+
+               INSERT INTO mtl_transactions_interface
+                           (transaction_interface_id, transaction_header_id,
+                            source_code, source_line_id, source_header_id,
+                            process_flag, transaction_mode, lock_flag,
+                            inventory_item_id, revision,
+                            organization_id,
+                            subinventory_code,
+                            locator_id,
+                            transaction_type_id,
+                            transaction_source_type_id,
+                            transaction_action_id,
+                            transaction_quantity,
+                            transaction_uom,
+                            primary_quantity,
+                            transaction_date, last_update_date,
+                            last_updated_by, creation_date,
+                            created_by, distribution_account_id, parent_id,
+                            transaction_batch_id, transaction_batch_seq,
+                            lpn_id, transfer_lpn_id, cost_group_id
+                           )
+                    VALUES (l_txn_if_id3,                 --transaction_header_id
+                                         l_trx_hdr_id, --transaction_interface_id
+                            'INV',                                  --source_code
+                                  -1,                          --source_header_id
+                                     -1,                         --source_line_id
+                            1,                                     --process_flag
+                              3,                               --transaction_mode
+                                2,                                    --lock_flag
+                            c_lot_merge_rec.inventory_item_id,
+                                                              --inventory_item_id
+                            NULL,                                      --revision
+                            c_lot_merge_rec.inv_org_id,         --organization_id
+                            c_lot_merge_rec.source_sub_inventory,
+                            --subinventory_code
+                            c_lot_merge_rec.source_locator_id,       --locator_id
+                            c_lot_merge_rec.transaction_type_id,
+                            --transaction_type_id
+                            c_lot_merge_rec.transaction_source_type_id,
+                            --transaction_source_type_id
+                            c_lot_merge_rec.transaction_action_id,
+
+                            --transaction_action_id
+                            (c_lot_merge_rec.quantity
+                            ) * (-1),                      --transaction_quantity
+                            c_lot_merge_rec.uom_code,
+
+                            --transaction_uom
+                            (c_lot_merge_rec.quantity) * (-1), --primary_quantity
+                            c_lot_merge_rec.transaction_date,  --Transaction_Date
+                                                             SYSDATE,
+                            --Last_Update_Date
+                            c_lot_merge_rec.user_id,            --Last_Updated_by
+                                                    SYSDATE,      --Creation_Date
+                            c_lot_merge_rec.user_id,                 --Created_by
+                                                    NULL,
+                                                         --distribution_account_id
+                                                         l_parent_id, --parent_id
+                            l_trx_hdr_id,                  --transaction_batch_id
+                                         l_txn_if_id3,    --transaction_batch_seq
+                            c_lot_merge_rec.source_lpn_id,
+                                                          --lpn_id (for source MTI)
+                            NULL,
+                                 --c_lot_merge_rec.dest_lpn_id                   ,
+                            42520
+                           );
+
+   --Insert MTLI corresponding to the Source record-1
+               INSERT INTO mtl_transaction_lots_interface
+                           (transaction_interface_id,
+                            source_code, source_line_id,
+                            process_flag, last_update_date,
+                            last_updated_by,
+                            creation_date,
+                            created_by,
+                            lot_number,
+                            lot_expiration_date,
+                            transaction_quantity,
+                            primary_quantity
+                           )
+                    VALUES (l_txn_if_id3               --transaction_interface_id
+                                        ,
+                            'INV'                                   --Source_Code
+                                 , -1                            --Source_Line_Id
+                                     ,
+                            'Y'                                    --Process_Flag
+                               , SYSDATE                       --Last_Update_Date
+                                        ,
+                            c_lot_merge_rec.user_id             --Last_Updated_by
+                                                   ,
+                            SYSDATE                               --Creation_date
+                                   ,
+                            c_lot_merge_rec.user_id                  --Created_By
+                                                   ,
+                            c_lot_merge_rec.lot_number               --Lot_Number
+                                                      ,
+                            NULL                            --Lot_Expiration_Date
+                                ,
+                            (c_lot_merge_rec.quantity) * (-1),
+                            (c_lot_merge_rec.quantity
+                            ) * (-1)
+                           );
+            EXCEPTION
+               WHEN OTHERS
+               THEN
+                  l_record_status := 'E';
+                  l_err_msg :=
+                        l_err_msg
+                     || '|'
+                     || 'Error while inserting records into mtl_transactions_interface.'
+                     || SQLERRM;
+                  xxprop_common_util_pkg.trace_log
+                                                  (p_module            =>    g_package_name
+                                                                          || '.'
+                                                                          || l_procedure_name,
+                                                   p_message_text      => l_err_msg,
+                                                   p_payload           => NULL
+                                                  );
+            END;
+
+            IF l_record_status <> 'E'
+            THEN*//*l_retval :=
+                  apps.inv_txn_manager_pub.process_transactions
+                              (p_api_version           => 1.0,
+                               p_init_msg_list         => fnd_api.g_false,
+                               p_commit                => fnd_api.g_false,
+                               p_validation_level      => fnd_api.g_valid_level_full,
+                               x_return_status         => l_api_return_status,
+                               x_msg_count             => l_api_msg_cnt,
+                               x_msg_data              => l_api_msg_data,
+                               x_trans_count           => l_api_trans_count,
+                               p_table                 => 1,
+                               p_header_id             => l_trx_hdr_id
+                              );*/
+               /*xxprop_common_util_pkg.trace_log
+                  (p_module            => g_package_name || '.'
+                                          || l_procedure_name,
+                   p_message_text      =>    'inv_txn_manager_pub.process_transactions API Status-'
+                                          || l_api_return_status
+                                          || '  API Message:-'
+                                          || l_api_msg_data,
+                   p_payload           => NULL
+                  );
+
+               IF l_retval = 0 AND l_api_return_status = 'S'
+               THEN
+                  BEGIN
+                     SELECT MAX (transaction_set_id)
+                       INTO l_transaction_set_id
+                       FROM mtl_material_transactions
+                      WHERE transaction_set_id = l_trx_hdr_id;
+                  EXCEPTION
+                     WHEN OTHERS
+                     THEN
+                        l_transaction_set_id := NULL;
+                  END;
+
+                  IF l_transaction_set_id IS NOT NULL
+                  THEN
+                     UPDATE xxalg_lpn_lot_split_merge_gt
+                        SET record_status = 'S',
+                            record_message = NULL,
+                            transaction_id = l_trx_hdr_id
+                      WHERE record_num = c_lot_merge_rec.record_num
+                        AND record_grp_id = p_group_id;
+
+                     --COMMIT;
+                     xxprop_common_util_pkg.trace_log
+                        (p_module            =>    g_package_name
+                                                || '.'
+                                                || l_procedure_name,
+                         p_message_text      =>    'Lot Split Transaction Completed with transaction_set_id-'
+                                                || l_transaction_set_id,
+                         p_payload           => NULL
+                        );
+                  ELSE
+                     --ROLLBACK;
+                     l_err_msg :=
+                                'Error Packing:-TransactionSet ID not generated';
+   */                /*UPDATE xxalg_wip_mo_tran_gt
+                        SET record_status = 'E',
+                            record_message = record_message || '|' || l_err_msg
+                      WHERE record_grp_id = g_record_id
+                            AND record_num = p_record_num;*/
+                     /*UPDATE xxalg_lpn_lot_split_merge_gt
+                        SET record_status = 'E',
+                            record_message = record_message || '|' || l_err_msg
+                      WHERE record_num = c_lot_merge_rec.record_num
+                        AND record_grp_id = p_group_id;*/
+
+   /*DELETE FROM mtl_transaction_lots_interface mtli
+         WHERE EXISTS (
+                  SELECT 1
+                    FROM mtl_transactions_interface mti
+                   WHERE mti.transaction_header_id =
+                                                   l_trx_hdr_id
+                     AND mtli.transaction_interface_id =
+                                   mti.transaction_interface_id);
+
+   DELETE FROM mtl_transactions_interface
+         WHERE transaction_header_id = l_trx_hdr_id;*/
+
+   --COMMIT;
+   /*xxprop_common_util_pkg.trace_log
+            (p_module            =>    g_package_name
+                                    || '.'
+                                    || l_procedure_name,
+             p_message_text      => 'Delete record from mtl_transactions_interface when l_transaction_set_id is null',
+             p_payload           => NULL
+            );
+      END IF;
+   ELSE
+      BEGIN
+         SELECT 'Error Lot Merge:-' || error_explanation
+           INTO l_err_msg
+           FROM mtl_transactions_interface
+          WHERE transaction_header_id = l_trx_hdr_id
+            AND error_explanation IS NOT NULL
+            AND ROWNUM = 1;
+      EXCEPTION
+         WHEN OTHERS
+         THEN
+            l_err_msg := NULL;
+      END;
+
+      --ROLLBACK;
+      UPDATE xxalg_lpn_lot_split_merge_gt
+         SET record_status = 'E',
+             record_message = record_message || '|' || l_err_msg
+       WHERE record_num = c_lot_merge_rec.record_num
+         AND record_grp_id = p_group_id;*/
+
+   /*DELETE FROM mtl_transaction_lots_interface mtli
+         WHERE EXISTS (
+                  SELECT 1
+                    FROM mtl_transactions_interface mti
+                   WHERE mti.transaction_header_id = l_trx_hdr_id
+                     AND mtli.transaction_interface_id =
+                                      mti.transaction_interface_id);
+
+   DELETE FROM mtl_transactions_interface
+         WHERE transaction_header_id = l_trx_hdr_id;*/
+
+   --COMMIT;
+   /* xxprop_common_util_pkg.trace_log
+            (p_module            =>    g_package_name
+                                    || '.'
+                                    || l_procedure_name,
+             p_message_text      => 'Delete record from mtl_transactions_interface when API get error',
+             p_payload           => NULL
+            );
+      END IF;
+   ELSE
+      --ROLLBACK;
+      UPDATE xxalg_lpn_lot_split_merge_gt
+         SET record_status = 'E',
+             record_message = record_message || '|' || l_err_msg
+       WHERE record_num = c_lot_merge_rec.record_num
+         AND record_grp_id = p_group_id;*/
+
+   /*DELETE FROM mtl_transaction_lots_interface mtli
+         WHERE EXISTS (
+                  SELECT 1
+                    FROM mtl_transactions_interface mti
+                   WHERE mti.transaction_header_id = l_trx_hdr_id
+                     AND mtli.transaction_interface_id =
+                                         mti.transaction_interface_id);
+
+   DELETE FROM mtl_transactions_interface
+         WHERE transaction_header_id = l_trx_hdr_id;*/
+
+   --COMMIT;
+   /*xxprop_common_util_pkg.trace_log
                (p_module            => g_package_name || '.'
                                        || l_procedure_name,
                 p_message_text      =>    'Error while while inserting mtl_transactions_interface='
@@ -3590,14 +4419,14 @@ PROCEDURE validate_lot_split_data (
                                            p_message_text      => x_return_msg,
                                            p_payload           => NULL
                                           );
-   END lot_merge_interface;
+   END lot_merge_interface;*/
    PROCEDURE lot_split_interface (
       p_group_id        IN       NUMBER,
       x_return_status   IN OUT   VARCHAR2,
       x_return_msg      IN OUT   VARCHAR2
    )
    IS
-      l_procedure_name       VARCHAR2 (200)  := 'LOT_split_INTERFACE';
+      l_procedure_name       VARCHAR2 (200)  := 'LOT_SPLIT_INTERFACE';
       l_transaction_id       NUMBER;
       l_err_msg              VARCHAR2 (1000);
       l_record_status        VARCHAR2 (10);
@@ -3605,16 +4434,16 @@ PROCEDURE validate_lot_split_data (
       l_proc_msg             VARCHAR2 (4000);
       l_trx_api_return       NUMBER;
       l_check                NUMBER;
-      l_parent_id            NUMBER;
-      l_txn_if_id1           NUMBER;
-      l_txn_if_id2           NUMBER;
       l_retval               NUMBER;
       l_api_return_status    VARCHAR2 (100);
       l_api_msg_cnt          NUMBER;
       l_api_msg_data         VARCHAR2 (500);
       l_api_trans_count      VARCHAR2 (100);
       l_transaction_set_id   NUMBER;
-      l_txn_if_id3           NUMBER;
+      l_mmt_api_return       VARCHAR2 (100);
+      l_mmt_trx_tmp_id       NUMBER;
+      l_parent_trx_tmp_id    NUMBER;
+      l_ser_trx_id           NUMBER;
 
       --l_scrap_acct_chk   VARCHAR2 (10);
       CURSOR c_lot_split_cur
@@ -3639,311 +4468,185 @@ PROCEDURE validate_lot_split_data (
          l_record_status := 'I';
          l_proc_msg := NULL;
          l_trx_api_return := NULL;
-         l_parent_id := NULL;
-         l_txn_if_id1 := NULL;
-         l_txn_if_id2 := NULL;
-         l_txn_if_id3 := NULL;
          l_retval := NULL;
          l_api_return_status := NULL;
          l_api_msg_cnt := NULL;
          l_api_msg_data := NULL;
          l_api_trans_count := NULL;
          l_transaction_set_id := NULL;
+         l_parent_trx_tmp_id := NULL;
+         l_mmt_trx_tmp_id := NULL;
+         l_ser_trx_id := NULL;
+         l_check := NULL;
 
          SELECT apps.mtl_material_transactions_s.NEXTVAL
            INTO l_trx_hdr_id
            FROM DUAL;
 
-         SELECT apps.mtl_material_transactions_s.NEXTVAL
-           INTO l_txn_if_id1
-           FROM DUAL;
-
-         l_parent_id := l_txn_if_id1;
-
          BEGIN
-            INSERT INTO mtl_transactions_interface
-                        (transaction_interface_id, transaction_header_id,
-                         source_code, source_line_id, source_header_id,
-                         process_flag, transaction_mode, lock_flag,
-                         last_update_date, last_updated_by, creation_date,
-                         created_by,
-                         organization_id,
-                         transaction_quantity, transaction_uom,
-                         transaction_date,
-                         inventory_item_id, revision,
-                         subinventory_code,
-                         locator_id,
-                         transaction_type_id,
-                         transaction_source_type_id,
-                         transaction_action_id,
-                         primary_quantity, parent_id,
-                         distribution_account_id, transaction_batch_id,
-                         transaction_batch_seq, lpn_id, transfer_lpn_id,cost_group_id
-                        )
-                 VALUES (l_txn_if_id1, l_trx_hdr_id,
-                         'INV', -1, -1,
-                         1, 3, 2,
-                         SYSDATE, c_lot_split_rec.user_id, SYSDATE,
-                         c_lot_split_rec.user_id,
-                         c_lot_split_rec.inv_org_id,
-                         c_lot_split_rec.quantity*2, c_lot_split_rec.uom_code,
-                         c_lot_split_rec.transaction_date,
-                         c_lot_split_rec.inventory_item_id, NULL,
-                         c_lot_split_rec.dest_sub_inventory,
-                         c_lot_split_rec.dest_locator_id,
-                         c_lot_split_rec.transaction_type_id,
-                         c_lot_split_rec.transaction_source_type_id,
-                         c_lot_split_rec.transaction_action_id,
-                         c_lot_split_rec.quantity*2, l_parent_id,
-                         NULL, l_trx_hdr_id,
-                         1, NULL,             --c_lot_split_rec.source_lpn_id,
-                                 c_lot_split_rec.dest_lpn_id,42520
-                        );
+            l_mmt_api_return :=
+               inv_trx_util_pub.insert_line_trx
+                  (p_trx_hdr_id             => l_trx_hdr_id,
+                   p_item_id                => c_lot_split_rec.inventory_item_id,
+                   p_revision               => NULL,
+                   p_org_id                 => c_lot_split_rec.inv_org_id,
+                   p_trx_action_id          => c_lot_split_rec.transaction_action_id,
+                   p_subinv_code            => c_lot_split_rec.source_sub_inventory,
+                   p_tosubinv_code          => NULL,
+                   p_locator_id             => c_lot_split_rec.source_locator_id,
+                   p_tolocator_id           => NULL,
+                   p_xfr_org_id             => NULL,
+                   p_trx_type_id            => c_lot_split_rec.transaction_type_id,
+                   p_trx_src_type_id        => c_lot_split_rec.transaction_source_type_id,
+                   p_trx_qty                =>   (c_lot_split_rec.quantity)
+                                               * (-1),
+                   p_pri_qty                =>   (c_lot_split_rec.quantity)
+                                               * (-1),
+                   p_uom                    => c_lot_split_rec.uom_code,
+                   p_date                   => c_lot_split_rec.transaction_date,
+                   p_reason_id              => NULL,
+                   p_user_id                => c_lot_split_rec.user_id,
+                   p_frt_code               => NULL,
+                   p_ship_num               => NULL,
+                   p_dist_id                => NULL,
+                   p_way_bill               => NULL,
+                   p_exp_arr                => NULL,
+                   p_cost_group             => 42520,
+                   p_from_lpn_id            => c_lot_split_rec.source_lpn_id,
+                   p_cnt_lpn_id             => NULL,
+                   p_xfr_lpn_id             => NULL,
+                   p_trx_src_id             => NULL,
+                   p_xfr_cost_group         => NULL,
+                   p_completion_trx_id      => NULL,
+                   p_flow_schedule          => NULL,
+                   p_trx_cost               => NULL,
+                   p_project_id             => NULL,
+                   p_task_id                => NULL,
+                   p_secondary_trx_qty      => NULL,
+                   p_secondary_uom          => NULL,
+                   x_trx_tmp_id             => l_mmt_trx_tmp_id,
+                   x_proc_msg               => l_proc_msg
+                  );
+            l_parent_trx_tmp_id := l_mmt_trx_tmp_id;
 
---Insert MTLI corresponding to the resultant MTI record
-            INSERT INTO mtl_transaction_lots_interface
-                        (transaction_interface_id,
-                         source_code, source_line_id,
-                         process_flag, last_update_date,
-                         last_updated_by,
-                         creation_date,
-                         created_by,
-                         lot_number,
-                         lot_expiration_date,
-                         transaction_quantity,
-                         primary_quantity
-                        )
-                 VALUES (l_txn_if_id1               --transaction_interface_id
-                                     ,
-                         'INV'                                   --Source_Code
-                              , -1                            --Source_Line_Id
-                                  ,
-                         'Y'                                    --Process_Flag
-                            , SYSDATE                       --Last_Update_Date
-                                     ,
-                         c_lot_split_rec.user_id             --Last_Updated_by
-                                                ,
-                         SYSDATE                               --Creation_date
-                                ,
-                         c_lot_split_rec.user_id                  --Created_By
-                                                ,
-                         c_lot_split_rec.dest_lot_number          --Lot_Number
-                                                        ,
-                         NULL                            --Lot_Expiration_Date
-                             ,
-                         c_lot_split_rec.quantity*2       --transaction_quantity
-                                                 ,
-                         c_lot_split_rec.quantity*2           --primary_quantity
-                        );
+            UPDATE mtl_material_transactions_temp
+               SET transaction_batch_seq = l_mmt_trx_tmp_id
+             WHERE transaction_header_id = l_trx_hdr_id
+               AND transaction_temp_id = l_mmt_trx_tmp_id;
 
-            SELECT apps.mtl_material_transactions_s.NEXTVAL
-              INTO l_txn_if_id2
-              FROM DUAL;
+            xxprop_common_util_pkg.trace_log
+               (p_module            => g_package_name || '.'
+                                       || l_procedure_name,
+                p_message_text      =>    '1 Inserted into MMT Temp Table l_mmt_api_return-'
+                                       || l_mmt_api_return
+                                       || ' l_mmt_trx_tmp_id-'
+                                       || l_mmt_trx_tmp_id
+                                       || ' l_proc_msg-'
+                                       || l_proc_msg,
+                p_payload           => NULL
+               );
+            l_proc_msg := NULL;
+            l_ser_trx_id := NULL;
+            l_mmt_api_return := NULL;
+            l_mmt_api_return :=
+               inv_trx_util_pub.insert_lot_trx
+                                  (p_trx_tmp_id         => l_mmt_trx_tmp_id,
+                                   p_user_id            => c_lot_split_rec.user_id,
+                                   p_lot_number         => c_lot_split_rec.lot_number,
+                                   p_trx_qty            =>   (c_lot_split_rec.quantity
+                                                             )
+                                                           * (-1),
+                                   p_pri_qty            =>   (c_lot_split_rec.quantity
+                                                             )
+                                                           * (-1),
+                                   p_secondary_uom      => NULL,
+                                   p_secondary_qty      => NULL,
+                                   x_ser_trx_id         => l_ser_trx_id,
+                                   x_proc_msg           => l_proc_msg
+                                  );
+            l_mmt_trx_tmp_id := NULL;
+            l_proc_msg := NULL;
+            l_mmt_api_return := NULL;
+            l_mmt_api_return :=
+               inv_trx_util_pub.insert_line_trx
+                  (p_trx_hdr_id             => l_trx_hdr_id,
+                   p_item_id                => c_lot_split_rec.inventory_item_id,
+                   p_revision               => NULL,
+                   p_org_id                 => c_lot_split_rec.inv_org_id,
+                   p_trx_action_id          => c_lot_split_rec.transaction_action_id,
+                   p_subinv_code            => c_lot_split_rec.dest_sub_inventory,
+                   p_tosubinv_code          => NULL,
+                   p_locator_id             => c_lot_split_rec.dest_locator_id,
+                   p_tolocator_id           => NULL,
+                   p_xfr_org_id             => NULL,
+                   p_trx_type_id            => c_lot_split_rec.transaction_type_id,
+                   p_trx_src_type_id        => c_lot_split_rec.transaction_source_type_id,
+                   p_trx_qty                => (c_lot_split_rec.quantity),
+                   p_pri_qty                => (c_lot_split_rec.quantity),
+                   p_uom                    => c_lot_split_rec.uom_code,
+                   p_date                   => c_lot_split_rec.transaction_date,
+                   p_reason_id              => NULL,
+                   p_user_id                => c_lot_split_rec.user_id,
+                   p_frt_code               => NULL,
+                   p_ship_num               => NULL,
+                   p_dist_id                => NULL,
+                   p_way_bill               => NULL,
+                   p_exp_arr                => NULL,
+                   p_cost_group             => 42520,
+                   p_from_lpn_id            => NULL,
+                   p_cnt_lpn_id             => NULL,
+                   p_xfr_lpn_id             => c_lot_split_rec.dest_lpn_id,
+                   p_trx_src_id             => NULL,
+                   p_xfr_cost_group         => NULL,
+                   p_completion_trx_id      => NULL,
+                   p_flow_schedule          => NULL,
+                   p_trx_cost               => NULL,
+                   p_project_id             => NULL,
+                   p_task_id                => NULL,
+                   p_secondary_trx_qty      => NULL,
+                   p_secondary_uom          => NULL,
+                   x_trx_tmp_id             => l_mmt_trx_tmp_id,
+                   x_proc_msg               => l_proc_msg
+                  );
 
---Populate the MTI record for Source record-1
-            INSERT INTO mtl_transactions_interface
-                        (transaction_interface_id, transaction_header_id,
-                         source_code, source_line_id, source_header_id,
-                         process_flag, transaction_mode, lock_flag,
-                         inventory_item_id, revision,
-                         organization_id,
-                         subinventory_code,
-                         locator_id,
-                         transaction_type_id,
-                         transaction_source_type_id,
-                         transaction_action_id,
-                         transaction_quantity,
-                         transaction_uom,
-                         primary_quantity,
-                         transaction_date, last_update_date,
-                         last_updated_by, creation_date,
-                         created_by, distribution_account_id, parent_id,
-                         transaction_batch_id, transaction_batch_seq, lpn_id,
-                         transfer_lpn_id,cost_group_id
-                        )
-                 VALUES (l_txn_if_id2,                 --transaction_header_id
-                                      l_trx_hdr_id, --transaction_interface_id
-                         'INV',                                  --source_code
-                               -1,                          --source_header_id
-                                  -1,                         --source_line_id
-                         1,                                     --process_flag
-                           3,                               --transaction_mode
-                             2,                                    --lock_flag
-                         c_lot_split_rec.inventory_item_id,
-                                                           --inventory_item_id
-                         NULL,                                      --revision
-                         c_lot_split_rec.inv_org_id,         --organization_id
-                         c_lot_split_rec.dest_sub_inventory,
-                         --subinventory_code
-                         c_lot_split_rec.dest_locator_id,       --locator_id
-                         c_lot_split_rec.transaction_type_id,
-                         --transaction_type_id
-                         c_lot_split_rec.transaction_source_type_id,
-                         --transaction_source_type_id
-                         c_lot_split_rec.transaction_action_id,
-                         
-                         --transaction_action_id
-                         (c_lot_split_rec.quantity
-                         ) * (-1),                      --transaction_quantity
-                         c_lot_split_rec.uom_code,
-                         
-                         --transaction_uom
-                         (c_lot_split_rec.quantity) * (-1), --primary_quantity
-                         c_lot_split_rec.transaction_date,  --Transaction_Date
-                                                          SYSDATE,
-                         --Last_Update_Date
-                         c_lot_split_rec.user_id,            --Last_Updated_by
-                                                 SYSDATE,      --Creation_Date
-                         c_lot_split_rec.user_id,                 --Created_by
-                                                 NULL,
-                                                      --distribution_account_id
-                                                      l_parent_id, --parent_id
-                         l_trx_hdr_id,                  --transaction_batch_id
-                                      2,               --transaction_batch_seq
-                                        c_lot_split_rec.source_lpn_id,
-                         --lpn_id (for source MTI)
-                         NULL                  ,42520
-                        );
+            UPDATE mtl_material_transactions_temp
+               SET transaction_batch_seq = l_mmt_trx_tmp_id
+             WHERE transaction_header_id = l_trx_hdr_id
+               AND transaction_temp_id = l_mmt_trx_tmp_id;
 
---Insert MTLI corresponding to the Source record-1
-            INSERT INTO mtl_transaction_lots_interface
-                        (transaction_interface_id,
-                         source_code, source_line_id,
-                         process_flag, last_update_date,
-                         last_updated_by,
-                         creation_date,
-                         created_by,
-                         lot_number,
-                         lot_expiration_date,
-                         transaction_quantity,
-                         primary_quantity
-                        )
-                 VALUES (l_txn_if_id2               --transaction_interface_id
-                                     ,
-                         'INV'                                   --Source_Code
-                              , -1                            --Source_Line_Id
-                                  ,
-                         'Y'                                    --Process_Flag
-                            , SYSDATE                       --Last_Update_Date
-                                     ,
-                         c_lot_split_rec.user_id             --Last_Updated_by
-                                                ,
-                         SYSDATE                               --Creation_date
-                                ,
-                         c_lot_split_rec.user_id                  --Created_By
-                                                ,
-                         c_lot_split_rec.dest_lot_number               --Lot_Number
-                                                   ,
-                         NULL                            --Lot_Expiration_Date
-                             ,
-                         (c_lot_split_rec.quantity) * (-1),
-                         (c_lot_split_rec.quantity
-                         ) * (-1)
-                        );
+            xxprop_common_util_pkg.trace_log
+               (p_module            => g_package_name || '.'
+                                       || l_procedure_name,
+                p_message_text      =>    '2 Inserted into MMT Temp Table l_mmt_api_return-'
+                                       || l_mmt_api_return
+                                       || ' l_mmt_trx_tmp_id-'
+                                       || l_mmt_trx_tmp_id
+                                       || ' l_proc_msg-'
+                                       || l_proc_msg,
+                p_payload           => NULL
+               );
+            l_proc_msg := NULL;
+            l_ser_trx_id := NULL;
+            l_mmt_api_return := NULL;
+            l_mmt_api_return :=
+               inv_trx_util_pub.insert_lot_trx
+                             (p_trx_tmp_id         => l_mmt_trx_tmp_id,
+                              p_user_id            => c_lot_split_rec.user_id,
+                              p_lot_number         => c_lot_split_rec.dest_lot_number,
+                              p_trx_qty            => (c_lot_split_rec.quantity
+                                                      ),
+                              p_pri_qty            => (c_lot_split_rec.quantity
+                                                      ),
+                              p_secondary_uom      => NULL,
+                              p_secondary_qty      => NULL,
+                              x_ser_trx_id         => l_ser_trx_id,
+                              x_proc_msg           => l_proc_msg
+                             );
+            DBMS_OUTPUT.put_line ('l_ser_trx_id-' || l_ser_trx_id);
 
-            SELECT apps.mtl_material_transactions_s.NEXTVAL
-              INTO l_txn_if_id3
-              FROM DUAL;
-
-            INSERT INTO mtl_transactions_interface
-                        (transaction_interface_id, transaction_header_id,
-                         source_code, source_line_id, source_header_id,
-                         process_flag, transaction_mode, lock_flag,
-                         inventory_item_id, revision,
-                         organization_id,
-                         subinventory_code,
-                         locator_id,
-                         transaction_type_id,
-                         transaction_source_type_id,
-                         transaction_action_id,
-                         transaction_quantity,
-                         transaction_uom,
-                         primary_quantity,
-                         transaction_date, last_update_date,
-                         last_updated_by, creation_date,
-                         created_by, distribution_account_id, parent_id,
-                         transaction_batch_id, transaction_batch_seq, lpn_id,
-                         transfer_lpn_id,cost_group_id
-                        )
-                 VALUES (l_txn_if_id3,                 --transaction_header_id
-                                      l_trx_hdr_id, --transaction_interface_id
-                         'INV',                                  --source_code
-                               -1,                          --source_header_id
-                                  -1,                         --source_line_id
-                         1,                                     --process_flag
-                           3,                               --transaction_mode
-                             2,                                    --lock_flag
-                         c_lot_split_rec.inventory_item_id,
-                                                           --inventory_item_id
-                         NULL,                                      --revision
-                         c_lot_split_rec.inv_org_id,         --organization_id
-                         c_lot_split_rec.source_sub_inventory,
-                         --subinventory_code
-                         c_lot_split_rec.source_locator_id,       --locator_id
-                         c_lot_split_rec.transaction_type_id,
-                         --transaction_type_id
-                         c_lot_split_rec.transaction_source_type_id,
-                         --transaction_source_type_id
-                         c_lot_split_rec.transaction_action_id,
-                         
-                         --transaction_action_id
-                         (c_lot_split_rec.quantity
-                         ) * (-1),                      --transaction_quantity
-                         c_lot_split_rec.uom_code,
-                         
-                         --transaction_uom
-                         (c_lot_split_rec.quantity) * (-1), --primary_quantity
-                         c_lot_split_rec.transaction_date,  --Transaction_Date
-                                                          SYSDATE,
-                         --Last_Update_Date
-                         c_lot_split_rec.user_id,            --Last_Updated_by
-                                                 SYSDATE,      --Creation_Date
-                         c_lot_split_rec.user_id,                 --Created_by
-                                                 NULL,
-                                                      --distribution_account_id
-                                                      l_parent_id, --parent_id
-                         l_trx_hdr_id,                  --transaction_batch_id
-                                      3,               --transaction_batch_seq
-                                        c_lot_split_rec.source_lpn_id,
-                         --lpn_id (for source MTI)
-                         NULL ,42520
-                        );
-
---Insert MTLI corresponding to the Source record-1
-            INSERT INTO mtl_transaction_lots_interface
-                        (transaction_interface_id,
-                         source_code, source_line_id,
-                         process_flag, last_update_date,
-                         last_updated_by,
-                         creation_date,
-                         created_by,
-                         lot_number,
-                         lot_expiration_date,
-                         transaction_quantity,
-                         primary_quantity
-                        )
-                 VALUES (l_txn_if_id3               --transaction_interface_id
-                                     ,
-                         'INV'                                   --Source_Code
-                              , -1                            --Source_Line_Id
-                                  ,
-                         'Y'                                    --Process_Flag
-                            , SYSDATE                       --Last_Update_Date
-                                     ,
-                         c_lot_split_rec.user_id             --Last_Updated_by
-                                                ,
-                         SYSDATE                               --Creation_date
-                                ,
-                         c_lot_split_rec.user_id                  --Created_By
-                                                ,
-                         c_lot_split_rec.lot_number               --Lot_Number
-                                                   ,
-                         NULL                            --Lot_Expiration_Date
-                             ,
-                         (c_lot_split_rec.quantity) * (-1),
-                         (c_lot_split_rec.quantity
-                         ) * (-1)
-                        );
+            UPDATE mtl_material_transactions_temp
+               SET parent_transaction_temp_id = l_parent_trx_tmp_id
+             WHERE transaction_header_id = l_trx_hdr_id;
          EXCEPTION
             WHEN OTHERS
             THEN
@@ -3964,43 +4667,38 @@ PROCEDURE validate_lot_split_data (
 
          IF l_record_status <> 'E'
          THEN
-            l_retval :=
-               apps.inv_txn_manager_pub.process_transactions
-                           (p_api_version           => 1.0,
-                            p_init_msg_list         => fnd_api.g_false,
-                            p_commit                => fnd_api.g_false,
-                            p_validation_level      => fnd_api.g_valid_level_full,
-                            x_return_status         => l_api_return_status,
-                            x_msg_count             => l_api_msg_cnt,
-                            x_msg_data              => l_api_msg_data,
-                            x_trans_count           => l_api_trans_count,
-                            p_table                 => 1,
-                            p_header_id             => l_trx_hdr_id
-                           );
-            xxprop_common_util_pkg.trace_log
-               (p_module            => g_package_name || '.'
-                                       || l_procedure_name,
-                p_message_text      =>    'inv_txn_manager_pub.process_transactions API Status-'
-                                       || l_api_return_status
-                                       || '  API Message:-'
-                                       || l_api_msg_data,
-                p_payload           => NULL
-               );
+            l_proc_msg := NULL;
+            l_trx_api_return :=
+               inv_lpn_trx_pub.process_lpn_trx
+                                            (p_trx_hdr_id              => l_trx_hdr_id,
+                                             p_commit                  => fnd_api.g_false,
+                                             x_proc_msg                => l_proc_msg,
+                                             p_proc_mode               => NULL,
+                                             p_process_trx             => fnd_api.g_true,
+                                             p_atomic                  => fnd_api.g_false,
+                                             p_business_flow_code      => 20
+                                            );
 
-            IF l_retval = 0 AND l_api_return_status = 'S'
+            IF l_trx_api_return = 0
             THEN
                BEGIN
-                  SELECT MAX (transaction_set_id)
-                    INTO l_transaction_set_id
+                  SELECT COUNT (*)
+                    INTO l_check
                     FROM mtl_material_transactions
                    WHERE transaction_set_id = l_trx_hdr_id;
                EXCEPTION
                   WHEN OTHERS
                   THEN
-                     l_transaction_set_id := NULL;
+                     l_check := 0;
                END;
 
-               IF l_transaction_set_id IS NOT NULL
+               DBMS_OUTPUT.put_line (   ' l_mmt_trx_tmp_id-'
+                                     || l_mmt_trx_tmp_id
+                                     || '  l_trx_hdr_id'
+                                     || l_trx_hdr_id
+                                    );
+
+               IF l_check > 0
                THEN
                   UPDATE xxalg_lpn_lot_split_merge_gt
                      SET record_status = 'S',
@@ -4009,120 +4707,81 @@ PROCEDURE validate_lot_split_data (
                    WHERE record_num = c_lot_split_rec.record_num
                      AND record_grp_id = p_group_id;
 
-                  --COMMIT;
-                  xxprop_common_util_pkg.trace_log
-                     (p_module            =>    g_package_name
-                                             || '.'
-                                             || l_procedure_name,
-                      p_message_text      =>    'Lot Split Transaction Completed with transaction_set_id-'
-                                             || l_transaction_set_id,
-                      p_payload           => NULL
-                     );
+                  COMMIT;
                ELSE
-                  --ROLLBACK;
+                  ROLLBACK;
+                  l_record_status := 'E';
                   l_err_msg :=
-                             'Error Packing:-TransactionSet ID not generated';
+                        l_err_msg
+                     || '|'
+                     || 'Error While Process Lpn Transaction, Transaction Set Id not Created-'
+                     || l_proc_msg;
 
-                  /*UPDATE xxalg_wip_mo_tran_gt
-                     SET record_status = 'E',
-                         record_message = record_message || '|' || l_err_msg
-                   WHERE record_grp_id = g_record_id
-                         AND record_num = p_record_num;*/
                   UPDATE xxalg_lpn_lot_split_merge_gt
                      SET record_status = 'E',
-                         record_message = record_message || '|' || l_err_msg
+                         record_message = l_err_msg
                    WHERE record_num = c_lot_split_rec.record_num
                      AND record_grp_id = p_group_id;
 
-                  /*DELETE FROM mtl_transaction_lots_interface mtli
-                        WHERE EXISTS (
-                                 SELECT 1
-                                   FROM mtl_transactions_interface mti
-                                  WHERE mti.transaction_header_id =
-                                                                  l_trx_hdr_id
-                                    AND mtli.transaction_interface_id =
-                                                  mti.transaction_interface_id);
-
-                  DELETE FROM mtl_transactions_interface
-                        WHERE transaction_header_id = l_trx_hdr_id;*/
-
-                  --COMMIT;
+                  COMMIT;
                   xxprop_common_util_pkg.trace_log
                      (p_module            =>    g_package_name
                                              || '.'
                                              || l_procedure_name,
-                      p_message_text      => 'Delete record from mtl_transactions_interface when l_transaction_set_id is null',
+                      p_message_text      =>    'Error While Process Lpn Transaction, Transaction Set Id not Created-'
+                                             || l_proc_msg,
                       p_payload           => NULL
                      );
                END IF;
             ELSE
-               BEGIN
-                  SELECT 'Error Lot Merge:-' || error_explanation
-                    INTO l_err_msg
-                    FROM mtl_transactions_interface
-                   WHERE transaction_header_id = l_trx_hdr_id
-                     AND error_explanation IS NOT NULL
-                     AND ROWNUM = 1;
-               EXCEPTION
-                  WHEN OTHERS
-                  THEN
-                     l_err_msg := NULL;
-               END;
+               ROLLBACK;
+               l_record_status := 'E';
+               l_err_msg :=
+                     l_err_msg
+                  || '|'
+                  || 'Error While Process Lpn Transaction-'
+                  || l_proc_msg;
 
-               --ROLLBACK;
                UPDATE xxalg_lpn_lot_split_merge_gt
                   SET record_status = 'E',
-                      record_message = record_message || '|' || l_err_msg
+                      record_message = l_err_msg
                 WHERE record_num = c_lot_split_rec.record_num
                   AND record_grp_id = p_group_id;
 
-               /*DELETE FROM mtl_transaction_lots_interface mtli
-                     WHERE EXISTS (
-                              SELECT 1
-                                FROM mtl_transactions_interface mti
-                               WHERE mti.transaction_header_id = l_trx_hdr_id
-                                 AND mtli.transaction_interface_id =
-                                                  mti.transaction_interface_id);
-
-               DELETE FROM mtl_transactions_interface
-                     WHERE transaction_header_id = l_trx_hdr_id;*/
-
-               --COMMIT;
+               COMMIT;
                xxprop_common_util_pkg.trace_log
                   (p_module            =>    g_package_name
                                           || '.'
                                           || l_procedure_name,
-                   p_message_text      => 'Delete record from mtl_transactions_interface when API get error',
+                   p_message_text      =>    'Error While Process Lpn Transaction-'
+                                          || l_proc_msg,
                    p_payload           => NULL
                   );
             END IF;
          ELSE
-            --ROLLBACK;
+            ROLLBACK;
+            l_record_status := 'E';
+            l_err_msg :=
+                  l_err_msg
+               || '|'
+               || 'Error While Inserting MMT api-'
+               || l_proc_msg;
+
             UPDATE xxalg_lpn_lot_split_merge_gt
                SET record_status = 'E',
-                   record_message = record_message || '|' || l_err_msg
+                   record_message = l_err_msg
              WHERE record_num = c_lot_split_rec.record_num
                AND record_grp_id = p_group_id;
 
-            /*DELETE FROM mtl_transaction_lots_interface mtli
-                  WHERE EXISTS (
-                           SELECT 1
-                             FROM mtl_transactions_interface mti
-                            WHERE mti.transaction_header_id = l_trx_hdr_id
-                              AND mtli.transaction_interface_id =
-                                                  mti.transaction_interface_id);
-
-            DELETE FROM mtl_transactions_interface
-                  WHERE transaction_header_id = l_trx_hdr_id;*/
-
-            --COMMIT;
+            COMMIT;
             xxprop_common_util_pkg.trace_log
-               (p_module            => g_package_name || '.'
-                                       || l_procedure_name,
-                p_message_text      =>    'Error while while inserting mtl_transactions_interface='
-                                       || l_err_msg,
-                p_payload           => NULL
-               );
+                       (p_module            =>    g_package_name
+                                               || '.'
+                                               || l_procedure_name,
+                        p_message_text      =>    'Error While Inserting MMT api-'
+                                               || l_proc_msg,
+                        p_payload           => NULL
+                       );
          END IF;
       END LOOP;
 
@@ -4780,7 +5439,7 @@ PROCEDURE validate_lot_split_data (
                WHERE record_grp_id = g_group_id;              --Comment Delete
    END lpn_merge_main;
 
- PROCEDURE lot_split_main (p_clob CLOB, x_return_msg OUT CLOB)
+   PROCEDURE lot_split_main (p_data BLOB, x_return_msg OUT sys_refcursor)
    IS
       l_return_status      VARCHAR2 (10)    := 'S';
       l_return_exception   EXCEPTION;
@@ -4811,7 +5470,7 @@ PROCEDURE validate_lot_split_data (
          DBMS_OUTPUT.put_line ('Calling insert_lot_split_gtt');
          l_return_msg := NULL;
          insert_lot_split_gtt (p_group_id           => g_group_id,
-                               p_clob               => p_clob,
+                               p_data               => p_data,
                                x_return_status      => l_return_status,
                                x_return_msg         => l_return_msg
                               );
@@ -4828,6 +5487,12 @@ PROCEDURE validate_lot_split_data (
 
          IF l_return_status <> 'S'
          THEN
+            INSERT INTO xxalg_lpn_lot_split_merge_gt
+                        (record_grp_id, record_status, record_message
+                        )
+                 VALUES (g_group_id, NULL, NULL
+                        );
+
             UPDATE xxalg_lpn_lot_split_merge_gt
                SET record_status = 'E',
                    record_message = record_message || ' ' || l_return_msg
@@ -4893,12 +5558,10 @@ PROCEDURE validate_lot_split_data (
          END IF;
       END;
 
-      SELECT xxprop_common_util_pkg.get_jason_output (l_qry)
-        INTO x_return_msg
-        FROM DUAL;
+      OPEN x_return_msg FOR l_qry;
 
-      --DELETE FROM xxalg_lpn_lot_split_merge_gt
-           -- WHERE record_grp_id = g_group_id;                 --Comment Delete
+      DELETE FROM xxalg_lpn_lot_split_merge_gt
+           WHERE record_grp_id = g_group_id;                 --Comment Delete
       xxprop_common_util_pkg.trace_log
                                     (p_module            =>    g_package_name
                                                             || '.'
@@ -4909,11 +5572,7 @@ PROCEDURE validate_lot_split_data (
    EXCEPTION
       WHEN l_return_exception
       THEN
-         BEGIN
-            SELECT xxprop_common_util_pkg.get_jason_output (l_qry)
-              INTO x_return_msg
-              FROM DUAL;
-         END;
+         OPEN x_return_msg FOR l_qry;
 
          xxprop_common_util_pkg.trace_log (p_module            =>    g_package_name
                                                                   || '.'
@@ -4921,15 +5580,11 @@ PROCEDURE validate_lot_split_data (
                                            p_message_text      => 'ERROR',
                                            p_payload           => NULL
                                           );
-      --DELETE FROM xxalg_lpn_lot_split_merge_gt
-           -- WHERE record_grp_id = g_group_id;              --Comment Delete
+      DELETE FROM xxalg_lpn_lot_split_merge_gt
+            WHERE record_grp_id = g_group_id;              --Comment Delete
       WHEN OTHERS
       THEN
-         BEGIN
-            SELECT xxprop_common_util_pkg.get_jason_output (l_qry)
-              INTO x_return_msg
-              FROM DUAL;
-         END;
+         OPEN x_return_msg FOR l_qry;
 
          xxprop_common_util_pkg.trace_log (p_module            =>    g_package_name
                                                                   || '.'
@@ -4938,11 +5593,11 @@ PROCEDURE validate_lot_split_data (
                                                                   || SQLERRM,
                                            p_payload           => NULL
                                           );
-   --DELETE FROM xxalg_lpn_lot_split_merge_gt
-         --WHERE record_grp_id = g_group_id;              --Comment Delete
+   DELETE FROM xxalg_lpn_lot_split_merge_gt
+         WHERE record_grp_id = g_group_id;              --Comment Delete
    END lot_split_main;
 
-   PROCEDURE lot_merge_main (p_clob CLOB, x_return_msg OUT CLOB)
+   PROCEDURE lot_merge_main (p_data BLOB, x_return_msg OUT sys_refcursor)
    IS
       l_return_status      VARCHAR2 (10)    := 'S';
       l_return_exception   EXCEPTION;
@@ -4973,7 +5628,7 @@ PROCEDURE validate_lot_split_data (
          DBMS_OUTPUT.put_line ('Calling insert_lot_merge_gtt');
          l_return_msg := NULL;
          insert_lot_merge_gtt (p_group_id           => g_group_id,
-                               p_clob               => p_clob,
+                               p_data               => p_data,
                                x_return_status      => l_return_status,
                                x_return_msg         => l_return_msg
                               );
@@ -4990,6 +5645,11 @@ PROCEDURE validate_lot_split_data (
 
          IF l_return_status <> 'S'
          THEN
+		 INSERT INTO xxalg_lpn_lot_split_merge_gt
+                        (record_grp_id, record_status, record_message
+                        )
+                 VALUES (g_group_id, NULL, NULL
+                        );
             UPDATE xxalg_lpn_lot_split_merge_gt
                SET record_status = 'E',
                    record_message = record_message || ' ' || l_return_msg
@@ -5055,12 +5715,10 @@ PROCEDURE validate_lot_split_data (
          END IF;
       END;
 
-      SELECT xxprop_common_util_pkg.get_jason_output (l_qry)
-        INTO x_return_msg
-        FROM DUAL;
+      OPEN x_return_msg FOR l_qry;
 
-      --DELETE FROM xxalg_lpn_lot_split_merge_gt
-           -- WHERE record_grp_id = g_group_id;                 --Comment Delete
+      DELETE FROM xxalg_lpn_lot_split_merge_gt
+            WHERE record_grp_id = g_group_id;                 --Comment Delete
       xxprop_common_util_pkg.trace_log
                                     (p_module            =>    g_package_name
                                                             || '.'
@@ -5071,11 +5729,7 @@ PROCEDURE validate_lot_split_data (
    EXCEPTION
       WHEN l_return_exception
       THEN
-         BEGIN
-            SELECT xxprop_common_util_pkg.get_jason_output (l_qry)
-              INTO x_return_msg
-              FROM DUAL;
-         END;
+         OPEN x_return_msg FOR l_qry;
 
          xxprop_common_util_pkg.trace_log (p_module            =>    g_package_name
                                                                   || '.'
@@ -5083,15 +5737,11 @@ PROCEDURE validate_lot_split_data (
                                            p_message_text      => 'ERROR',
                                            p_payload           => NULL
                                           );
-      --DELETE FROM xxalg_lpn_lot_split_merge_gt
-           -- WHERE record_grp_id = g_group_id;              --Comment Delete
+      DELETE FROM xxalg_lpn_lot_split_merge_gt
+        WHERE record_grp_id = g_group_id;              --Comment Delete
       WHEN OTHERS
       THEN
-         BEGIN
-            SELECT xxprop_common_util_pkg.get_jason_output (l_qry)
-              INTO x_return_msg
-              FROM DUAL;
-         END;
+         OPEN x_return_msg FOR l_qry;
 
          xxprop_common_util_pkg.trace_log (p_module            =>    g_package_name
                                                                   || '.'
@@ -5100,8 +5750,9 @@ PROCEDURE validate_lot_split_data (
                                                                   || SQLERRM,
                                            p_payload           => NULL
                                           );
-   --DELETE FROM xxalg_lpn_lot_split_merge_gt
-         --WHERE record_grp_id = g_group_id;              --Comment Delete
+   DELETE FROM xxalg_lpn_lot_split_merge_gt
+         WHERE record_grp_id = g_group_id;              --Comment Delete
+   
    END lot_merge_main;
 END xxalg_lpn_lot_split_merge_pkg;
 /
