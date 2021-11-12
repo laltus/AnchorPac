@@ -27,7 +27,7 @@ AS
 --//===========================================================================
    g_group_id       NUMBER;
    g_package_name   VARCHAR2 (100) := 'XXALG_LPN_LOT_SPLIT_MERGE_PKG';
-
+dfsdfdfsfs
    PROCEDURE insert_lpn_merge_gtt (
       p_group_id        IN       NUMBER,
       p_clob            IN       CLOB,
