@@ -95,7 +95,7 @@ AS
 * @param x_return_msg CLOB
 * @rep:scope public
 * @rep:lifecycle active
-* @rep:displayname Create Move Transaction of WIP Job
+* @rep:displayname Create Move Transaction of WIP Job testing in ijhy
 */
    PROCEDURE lpn_split_main (p_clob CLOB, x_return_msg OUT CLOB);
 
