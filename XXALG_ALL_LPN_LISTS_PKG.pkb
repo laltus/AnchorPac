@@ -8,7 +8,7 @@ AS
    ||   DATE             : 10-FEB-2020                                                        ||
    ||   NOTES            : R12                                                                ||
    ||                                                                                         ||
-   ||   VER     DATE            AUTHOR               MODIFICATION                             ||
+   ||   VER     DATE            AUTHOR               MODIFICATION          First Update                   ||
    ||   -----   -------------   ----------------     -------------------                      ||
    ||   1.0     10-FEB-2020    Satish Addala         Initial version                          ||
    ||                                                                                         ||
@@ -727,7 +727,7 @@ AS
       WHEN NO_DATA_FOUND
       THEN
          x_clob := 'NO DATA FOUND';
-         RETURN x_clob;
+         RETURN x_clob;zxczxcz
       WHEN OTHERS
       THEN
          DBMS_OUTPUT.put_line
@@ -1160,7 +1160,7 @@ flv.meaning LPN_CONTEXT_MEANING
          || ',wms_lpn_contents WLC '
          || 'WHERE lpn.Organization_ID = mil.Organization_ID  '
          || 'AND WLC.Organization_ID = msi.Organization_ID (+) '
-         || 'AND LPN.ORGANIZATION_ID  = WLC.ORGANIZATION_ID (+) '
+         || 'AND LPN.ORGANIZATION_ID  = WLC.ORGANIZATION_ID (+) 'xczczc
          || 'AND lpn.locator_id = mil.inventory_location_id (+) '
          || 'AND WLC.Inventory_Item_id = msi.Inventory_Item_id (+) '
          || 
@@ -1383,7 +1383,7 @@ flv.meaning LPN_CONTEXT_MEANING
             || p_organization_id
             || 'AND WDD.last_update_date >= TO_DATE('''
             || p_last_refresh
-            || ''', ''DD-MON-RRRR HH24:MI:SS'') ';
+            || ''', ''DD-MON-RRRR HH24:MI:SS'') ';zxczc
          v_qry := 'SELECT  DISTINCT ' || v_qry;
       ELSE
          v_qry := 'SELECT DISTINCT ' || v_qry;
