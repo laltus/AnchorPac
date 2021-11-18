@@ -8,7 +8,7 @@ AS
    ||   DATE             : 10-FEB-2020                                                        ||
    ||   NOTES            : R12                                                                ||
    ||                                                                                         ||
-   ||   VER     DATE            AUTHOR               MODIFICATION          First Update                   ||
+   ||   VER     DATE            AUTHOR               MODIFICATION          Secornd Update                   ||
    ||   -----   -------------   ----------------     -------------------                      ||
    ||   1.0     10-FEB-2020    Satish Addala         Initial version                          ||
    ||                                                                                         ||
