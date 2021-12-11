@@ -9,6 +9,7 @@ AS
 * @rep:lifecycle active
 * @rep:compatibility S
 * @rep:category12345
+LAltu Test1
 */
 --//=============================================================================
 --//
