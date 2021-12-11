@@ -8,7 +8,7 @@ AS
 * @rep:displayname xxalg_lpn_lot_split_merge_pkg
 * @rep:lifecycle active
 * @rep:compatibility S
-* @rep:category12345
+* @rep:category12345cxxcxfgf
 */
 --//=============================================================================
 --//
